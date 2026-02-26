@@ -4,7 +4,7 @@ import os
 import json
 
 
-def launch_app(num_qubits=3, initial_state=None):
+def launch_app(num_qubits=3, initial_state=None, show_circuit=False):
     """
     Launches the Voilà server for the interactive quantum sandbox.
     Can be called from anywhere once the package is installed.
@@ -28,14 +28,17 @@ def launch_app(num_qubits=3, initial_state=None):
     custom_env = os.environ.copy()
     custom_env["VIEWER_QUBITS"] = str(num_qubits)
     custom_env["VIEWER_INITIAL"] = json.dumps(initial_state)
+    custom_env["VIEWER_SHOW_CIRCUIT"] = "1" if show_circuit else "0"  # NEW
 
     print("Starting local server... A browser window will open automatically once ready.")
 
     # 2. Execute Voila targeting the ABSOLUTE path to the notebook
     command = [
         sys.executable, "-m", "voila",
-        notebook_path,  # <--- Changed from "app.ipynb"
-        "--theme=light"
+        notebook_path,
+        "--theme=light",
+        "--Voila.log_level=ERROR",  # Suppress Voila framework warnings
+        "--ServerApp.log_level=CRITICAL"  # Suppress underlying Tornado HTTP traffic logs
     ]
 
     try:
@@ -44,7 +47,7 @@ def launch_app(num_qubits=3, initial_state=None):
         print("\nShutting down Quantum Sandbox...")
 
 
-def launch_challenge(num_qubits=1, initial_state=[1, 0], target_state=[1, -1]):
+def launch_challenge(num_qubits=1, initial_state=[1, 0], target_state=[1, -1], show_circuit=False):
     """
     Launches the Voilà server with dynamically injected quantum states.
     Can be called from anywhere once the package is installed.
@@ -76,14 +79,17 @@ def launch_challenge(num_qubits=1, initial_state=[1, 0], target_state=[1, -1]):
     # Serialize lists to JSON strings to safely pass them through the OS layer
     custom_env["CHALLENGE_INITIAL"] = json.dumps(initial_state)
     custom_env["CHALLENGE_TARGET"] = json.dumps(target_state)
+    custom_env["CHALLENGE_SHOW_CIRCUIT"] = "1" if show_circuit else "0"  # NEW
 
     print("Starting local server... A browser window will open automatically once ready.")
 
     # 3. Execute Voila targeting the ABSOLUTE path to the challenge notebook
     command = [
         sys.executable, "-m", "voila",
-        notebook_path,  # <--- Changed from "challenge.ipynb"
-        "--theme=light"
+        notebook_path,
+        "--theme=light",
+        "--Voila.log_level=ERROR",
+        "--ServerApp.log_level=CRITICAL"
     ]
 
     try:

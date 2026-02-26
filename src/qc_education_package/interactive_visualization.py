@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import traceback
 import numpy as np
 import base64
+from io import BytesIO
 
 from .visualization import DimensionalCircleNotation
 
@@ -17,11 +18,12 @@ class InteractiveDCNViewer:
     An encapsulated interactive UI for dynamically visualizing quantum circuits.
     Features parametric controls, state vector normalization, global phase alignment,
     projective measurements, deterministic state-snapshotting undo mechanism,
-    and a live Dirac notation readout with discrete PNG and SVG export capabilities.
+    a live Dirac notation readout with discrete exports, and an optional circuit diagram.
     """
 
     def __init__(self, num_qubits=3, initial_state=None):
         self.num_qubits = num_qubits
+        self.show_circuit = False
         self.render_figsize = (8.0, 6.0)
 
         self.initial_state = self._normalize_state(initial_state) if initial_state is not None else None
@@ -61,9 +63,9 @@ class InteractiveDCNViewer:
         self.measure_btn.style.text_color = 'white';
         self.measure_btn.style.font_weight = 'bold'
 
-        self.zero_phase_btn = widgets.Button(description="0-Phase",
-                                             layout=widgets.Layout(width='90px', height='32px',
-                                                                   border='1px solid #d37c15', border_radius='4px'))
+        self.zero_phase_btn = widgets.Button(description="0-Phase", layout=widgets.Layout(width='90px', height='32px',
+                                                                                          border='1px solid #d37c15',
+                                                                                          border_radius='4px'))
         self.zero_phase_btn.style.button_color = '#f39c12';
         self.zero_phase_btn.style.text_color = 'white';
         self.zero_phase_btn.style.font_weight = 'bold'
@@ -85,9 +87,9 @@ class InteractiveDCNViewer:
         # --- State Inspector & Extraction Tools ---
         self.state_inspector = widgets.HTML(layout={'width': '60%', 'margin': '10px 0px 10px 0px'})
 
-        self.show_array_btn = widgets.Button(description="Raw Array",
-                                             layout=widgets.Layout(width='90px', height='32px',
-                                                                   border='1px solid #2c3e50', border_radius='4px'))
+        self.show_array_btn = widgets.Button(description="Raw Array", layout=widgets.Layout(width='90px', height='32px',
+                                                                                            border='1px solid #2c3e50',
+                                                                                            border_radius='4px'))
         self.show_array_btn.style.button_color = '#34495e';
         self.show_array_btn.style.text_color = 'white';
         self.show_array_btn.style.font_weight = 'bold'
@@ -106,13 +108,14 @@ class InteractiveDCNViewer:
         self.export_svg_btn.style.text_color = 'white';
         self.export_svg_btn.style.font_weight = 'bold'
 
-        # Combine the Dirac readout and extraction buttons into a single horizontal flexbox
         self.inspector_row = widgets.HBox(
             [self.state_inspector, self.show_array_btn, self.export_png_btn, self.export_svg_btn],
             layout={'width': '100%', 'align_items': 'center', 'justify_content': 'space-around'})
 
+        # --- Output Canvases ---
         self.image_widget = widgets.Image(format='png', layout={'min_height': '400px', 'max_width': '100%'})
-        self.console = widgets.Output(layout={'border': '1px solid red', 'width': '100%'})
+        self.circuit_image_widget = widgets.Image(format='png', layout={'max_width': '100%', 'margin': '10px 0px', 'display': 'none'})
+        self.console = widgets.Output(layout={'border': '1px solid #ccc', 'width': '100%'})  # Softened border color
 
         # --- Event Binding ---
         self.gate_dropdown.observe(self._toggle_angle_slider, names='value')
@@ -127,16 +130,19 @@ class InteractiveDCNViewer:
         self.export_png_btn.on_click(self._export_png)
         self.export_svg_btn.on_click(self._export_svg)
 
-        # --- Layout ---
-        controls_top = widgets.HBox(
+        # --- Layout Assembly ---
+        self.controls_top = widgets.HBox(
             [self.gate_dropdown, self.controlled_checkbox, self.control_selector, self.target_selector],
             layout={'align_items': 'center'})
-
-        controls_bottom = widgets.HBox(
+        self.controls_bottom = widgets.HBox(
             [self.angle_input, self.apply_btn, self.measure_btn, self.zero_phase_btn, self.undo_btn, self.reset_btn])
 
-        self.ui = widgets.VBox([controls_top, controls_bottom, self.inspector_row, self.image_widget, self.console],
-                               layout={'align_items': 'center'})
+        ui_elements = [self.controls_top, self.controls_bottom, self.inspector_row, self.circuit_image_widget, self.image_widget, self.console]
+        # if self.show_circuit:
+        #     ui_elements.append(self.circuit_image_widget)
+        # ui_elements.extend([self.image_widget, self.console])
+
+        self.ui = widgets.VBox(ui_elements, layout={'align_items': 'center', 'width': '100%'})
 
         self._update_plot()
 
@@ -244,20 +250,15 @@ class InteractiveDCNViewer:
         try:
             sv_current = Statevector.from_instruction(self.circuit)
             outcome_str, sv_collapsed = sv_current.measure(targets)
-
             self.circuit = QuantumCircuit(self.num_qubits)
             self.circuit.initialize(sv_collapsed.data, self.circuit.qubits)
 
-            results = []
-            for t, bit in zip(targets, reversed(outcome_str)):
-                results.append(f"Qubit {t + 1}: {bit}")
-
+            results = [f"Qubit {t + 1}: {bit}" for t, bit in zip(targets, reversed(outcome_str))]
             self._update_plot()
             with self.console:
                 print(f"💥 Measurement Result: {', '.join(results)}")
-
         except Exception as e:
-            self._circuit_history.pop()
+            self._circuit_history.pop();
             self._action_history.pop()
             with self.console:
                 print(f"Measurement Error: {type(e).__name__}: {str(e)}")
@@ -274,7 +275,7 @@ class InteractiveDCNViewer:
                         break
                 self._update_plot()
             except Exception as e:
-                self._circuit_history.pop()
+                self._circuit_history.pop();
                 self._action_history.pop()
                 self.console.clear_output()
                 print(f"Phase Calculation Error: {type(e).__name__}: {str(e)}")
@@ -306,38 +307,20 @@ class InteractiveDCNViewer:
             self.console.clear_output()
             try:
                 sv_data = Statevector.from_instruction(self.circuit).data
-                # Round to 6 decimal places to prevent floating point drift representations
                 formatted_list = [complex(round(c.real, 6), round(c.imag, 6)) for c in sv_data]
                 array_str = repr(formatted_list)
 
-                # HTML & JavaScript injection for a native browser copy-to-clipboard experience
                 copy_html = f"""
                 <div style="margin: 15px 0px; padding: 15px; border: 1px solid #bdc3c7; border-radius: 4px; background-color: #f8f9fa;">
-                    <div style="color: #2c3e50; font-family: sans-serif; font-weight: bold; margin-bottom: 8px;">
-                        📋 Raw Statevector Array:
-                    </div>
-
-                    <textarea id="array_output_box" readonly 
-                              style="width: 100%; height: 60px; font-family: monospace; font-size: 13px;
-                                     border: 1px solid #ccc; border-radius: 3px; padding: 8px; 
-                                     box-sizing: border-box; resize: none;">{array_str}</textarea>
-
-                    <button onclick="
-                                let ta = document.getElementById('array_output_box'); 
-                                ta.select(); 
-                                document.execCommand('copy'); 
-                                this.innerText='&#10004; Copied to Clipboard!';
-                                this.style.backgroundColor='#27ae60';
-                            " 
-                            style="margin-top: 10px; padding: 8px 16px; background-color: #34495e; 
-                                   color: white; border: none; border-radius: 4px; cursor: pointer; 
-                                   font-weight: bold; font-family: sans-serif; transition: 0.3s;">
+                    <div style="color: #2c3e50; font-family: sans-serif; font-weight: bold; margin-bottom: 8px;">📋 Raw Statevector Array:</div>
+                    <textarea id="array_output_box" readonly style="width: 100%; height: 60px; font-family: monospace; font-size: 13px; border: 1px solid #ccc; border-radius: 3px; padding: 8px; box-sizing: border-box; resize: none;">{array_str}</textarea>
+                    <button onclick="let ta = document.getElementById('array_output_box'); ta.select(); document.execCommand('copy'); this.innerText='&#10004; Copied to Clipboard!'; this.style.backgroundColor='#27ae60';" 
+                            style="margin-top: 10px; padding: 8px 16px; background-color: #34495e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-family: sans-serif; transition: 0.3s;">
                         Copy to Clipboard
                     </button>
                 </div>
                 """
                 display(widgets.HTML(copy_html))
-
             except Exception as e:
                 print(f"Array Extraction Error: {type(e).__name__}: {str(e)}")
 
@@ -346,22 +329,18 @@ class InteractiveDCNViewer:
             self.console.clear_output()
             try:
                 vis = DimensionalCircleNotation.from_qiskit(self.circuit)
-
                 with plt.rc_context({'figure.figsize': self.render_figsize, 'savefig.dpi': 300}):
                     b64_str = vis.exportBase64(formatStr='png')
 
                 download_html = f"""
                 <div style="margin: 15px 0px 10px 0px; text-align: center;">
                     <a href="data:image/png;base64,{b64_str}" download="quantum_state_dcn.png"
-                       style="background-color: #1abc9c; color: white; padding: 10px 20px; 
-                              text-decoration: none; border-radius: 4px; font-weight: bold; 
-                              font-family: sans-serif; border: 1px solid #16a085;">
+                       style="background-color: #1abc9c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; font-family: sans-serif; border: 1px solid #16a085;">
                        &#128190; Save High-Res PNG
                     </a>
                 </div>
                 """
                 display(widgets.HTML(download_html))
-
             except Exception as e:
                 print(f"PNG Export Error: {type(e).__name__}: {str(e)}")
 
@@ -370,25 +349,18 @@ class InteractiveDCNViewer:
             self.console.clear_output()
             try:
                 vis = DimensionalCircleNotation.from_qiskit(self.circuit)
-
-                # Apply vector-specific rcParams to ensure text is rendered as strings, not paths,
-                # which keeps the SVG scalable, editable, and lightweight.
                 with plt.rc_context({'figure.figsize': self.render_figsize, 'svg.fonttype': 'none'}):
                     b64_str = vis.exportBase64(formatStr='svg')
 
-                # Use the precise MIME type for SVG data URIs
                 download_html = f"""
                 <div style="margin: 15px 0px 10px 0px; text-align: center;">
                     <a href="data:image/svg+xml;base64,{b64_str}" download="quantum_state_dcn.svg"
-                       style="background-color: #2ecc71; color: white; padding: 10px 20px; 
-                              text-decoration: none; border-radius: 4px; font-weight: bold; 
-                              font-family: sans-serif; border: 1px solid #27ae60;">
+                       style="background-color: #2ecc71; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; font-family: sans-serif; border: 1px solid #27ae60;">
                        &#128190; Save Scalable Vector (SVG)
                     </a>
                 </div>
                 """
                 display(widgets.HTML(download_html))
-
             except Exception as e:
                 print(f"SVG Export Error: {type(e).__name__}: {str(e)}")
 
@@ -398,7 +370,6 @@ class InteractiveDCNViewer:
             if np.abs(amplitude) > 1e-5:
                 real = np.real(amplitude)
                 imag = np.imag(amplitude)
-
                 if np.abs(imag) < 1e-5:
                     amp_str = f"{real:.3f}"
                 elif np.abs(real) < 1e-5:
@@ -406,10 +377,8 @@ class InteractiveDCNViewer:
                 else:
                     sign = "+" if imag > 0 else "-"
                     amp_str = f"({real:.3f} {sign} {np.abs(imag):.3f}i)"
-
                 basis_state = f"|{index:0{self.num_qubits}b}⟩"
                 terms.append(f"{amp_str}{basis_state}")
-
         equation = " + ".join(terms).replace("+ -", "- ")
         return f"|ψ⟩ = {equation}"
 
@@ -417,49 +386,63 @@ class InteractiveDCNViewer:
         with self.console:
             try:
                 html_content = "<div style='text-align: left; font-family: monospace; font-size: 14px; max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 4px;'>"
-
                 for i, past_circ in enumerate(self._circuit_history):
                     sv = Statevector.from_instruction(past_circ)
                     dirac_str = self._format_dirac_notation(sv.data)
-
                     if i == 0:
                         html_content += f"<div style='margin-bottom: 5px;'><b>Initial State:</b> {dirac_str}</div>"
                     else:
-                        action = self._action_history[i - 1]
-                        html_content += f"<div style='margin-bottom: 5px;'><b>{action}</b> &#8594; {dirac_str}</div>"
+                        html_content += f"<div style='margin-bottom: 5px;'><b>{self._action_history[i - 1]}</b> &#8594; {dirac_str}</div>"
 
                 sv_current = Statevector.from_instruction(self.circuit)
                 current_dirac = self._format_dirac_notation(sv_current.data)
-
                 if not self._circuit_history:
                     html_content += f"<div style='margin-bottom: 5px;'><b>Initial State:</b> {current_dirac}</div>"
                 else:
-                    action = self._action_history[-1]
-                    html_content += f"<div style='margin-bottom: 5px;'><b>{action}</b> &#8594; {current_dirac}</div>"
-
+                    html_content += f"<div style='margin-bottom: 5px;'><b>{self._action_history[-1]}</b> &#8594; {current_dirac}</div>"
                 html_content += "</div>"
                 self.state_inspector.value = html_content
 
                 vis = DimensionalCircleNotation.from_qiskit(self.circuit)
                 with plt.rc_context({'figure.figsize': self.render_figsize, 'savefig.dpi': 300}):
                     b64_str = vis.exportBase64(formatStr='png')
-                png_bytes = base64.b64decode(b64_str)
-                self.image_widget.value = png_bytes
+                self.image_widget.value = base64.b64decode(b64_str)
+
+                # Conditional Circuit Rendering
+                if self.show_circuit:
+                    fig = self.circuit.draw(output='mpl')
+                    buf = BytesIO()
+                    fig.savefig(buf, format='png', bbox_inches='tight', dpi=300, transparent=False)
+                    plt.close(fig)
+                    self.circuit_image_widget.value = buf.getvalue()
+
             except Exception as e:
                 print("An error occurred during visualization generation:")
                 traceback.print_exc()
 
-    def show(self):
+    def show(self, show_circuit=None):
         """
-        Spawns a native OS window displaying the current visualization.
-        Ideal for executing the viewer from a standard Python script.
+        Spawns native OS windows displaying the current state.
+        If show_circuit is True, it spawns two separate Matplotlib windows.
         """
+        if show_circuit is not None:
+            self.show_circuit = show_circuit
+
         try:
+            # 1. Spawn a separate window for the circuit if requested
+            if self.show_circuit:
+                circ_fig = self.circuit.draw(output='mpl')
+                circ_fig.suptitle("Quantum Circuit Pipeline")
+
+            # 2. Spawn the DCN Visualization window
             vis = DimensionalCircleNotation.from_qiskit(self.circuit)
             with plt.rc_context({'figure.figsize': self.render_figsize}):
                 vis.draw()
                 if hasattr(vis, 'fig') and vis.fig is not None:
-                    vis.fig.suptitle("DCN Quantum State Viewer (Static Sandbox Export)")
+                    vis.fig.suptitle("DCN Quantum State Viewer")
+
+                    # plt.show() automatically renders all active, unclosed Matplotlib figures.
+                    # This gracefully handles showing either 1 or 2 windows depending on the flag.
                     plt.show(block=True)
                 else:
                     print("Error: The visualization class failed to generate a Matplotlib 'fig'.")
@@ -468,32 +451,35 @@ class InteractiveDCNViewer:
                 print(f"Standalone Render Error: {type(e).__name__}: {str(e)}")
             traceback.print_exc()
 
-    def display(self, figsize=None, ui_width=None):
+    def display(self, figsize=None, ui_width=None, show_circuit=None):
+        """Renders the UI in a Jupyter Notebook or Voilà browser environment."""
         if figsize is not None:
             self.render_figsize = figsize
-            self._update_plot()
+
+        # Dynamically toggle CSS visibility based on argument
+        if show_circuit is not None:
+            self.show_circuit = show_circuit
+            self.circuit_image_widget.layout.display = 'block' if self.show_circuit else 'none'
+
+        self._update_plot()
+
         if ui_width is not None:
             self.image_widget.layout.width = ui_width
-        display(self.ui)
+
+        from IPython.display import display as ipy_display
+        ipy_display(self.ui)
 
 
 class ChallengeDCNViewer(InteractiveDCNViewer):
     """
     An assessment-driven subclass of InteractiveDCNViewer.
-    Evaluates the current state against a defined target state, automatically
-    calculating fidelity to verify completion up to a global phase.
+    Evaluates the current state against a defined target state.
     """
 
-    def __init__(self, num_qubits, initial_state, target_state):
+    def __init__(self, num_qubits, initial_state, target_state, show_circuit=False):
         self.status_banner = widgets.HTML("<h2 style='text-align: center; color: #e74c3c;'>Status: Incomplete ❌</h2>")
 
-        shared_layout = widgets.Layout(
-            min_height='320px',
-            width='100%',
-            object_fit='contain',
-            justify_content='center'
-        )
-
+        shared_layout = widgets.Layout(min_height='320px', width='100%', object_fit='contain', justify_content='center')
         self.target_image_widget = widgets.Image(format='png', layout=shared_layout)
         self._raw_target_state = target_state
 
@@ -506,45 +492,29 @@ class ChallengeDCNViewer(InteractiveDCNViewer):
         self._render_target()
         self._update_plot()
 
-        controls_top = self.ui.children[0]
-        controls_bottom = self.ui.children[1]
-        inspector_row = self.ui.children[2]  # References the new combined HBox
-        console = self.ui.children[4]
-
         comparison_box = widgets.HBox([
-            widgets.VBox([
-                widgets.HTML("<h3 style='text-align: center; color: #555; margin-bottom: 0px;'>Current State</h3>"),
-                self.image_widget
-            ], layout={'align_items': 'center', 'width': '50%'}),
-
-            widgets.VBox([
-                widgets.HTML("<h3 style='text-align: center; color: #555; margin-bottom: 0px;'>Target State</h3>"),
-                self.target_image_widget
-            ], layout={'align_items': 'center', 'width': '50%'})
+            widgets.VBox(
+                [widgets.HTML("<h3 style='text-align: center; color: #555; margin-bottom: 0px;'>Current State</h3>"),
+                 self.image_widget], layout={'align_items': 'center', 'width': '50%'}),
+            widgets.VBox(
+                [widgets.HTML("<h3 style='text-align: center; color: #555; margin-bottom: 0px;'>Target State</h3>"),
+                 self.target_image_widget], layout={'align_items': 'center', 'width': '50%'})
         ], layout={'width': '100%', 'justify_content': 'space-around', 'align_items': 'flex-start'})
 
-        self.ui = widgets.VBox([
-            self.status_banner,
-            controls_top,
-            controls_bottom,
-            inspector_row,
-            comparison_box,
-            console
-        ], layout={'align_items': 'center', 'width': '100%'})
+        # The circuit_image_widget is now permanently in the VBox, managed via CSS
+        ui_elements = [self.status_banner, self.controls_top, self.controls_bottom, self.inspector_row,
+                       self.circuit_image_widget, comparison_box, self.console]
+        self.ui = widgets.VBox(ui_elements, layout={'align_items': 'center', 'width': '100%'})
 
         self._check_success()
 
     def _render_target(self):
         qc_target = QuantumCircuit(self.num_qubits)
         qc_target.initialize(self.target_state, qc_target.qubits)
-
         try:
             vis = DimensionalCircleNotation.from_qiskit(qc_target)
-
-            # INJECTION: Force High-DPI for the static target state benchmark
             with plt.rc_context({'figure.figsize': self.render_figsize, 'savefig.dpi': 300}):
                 b64_str = vis.exportBase64(formatStr='png')
-
             self.target_image_widget.value = base64.b64decode(b64_str)
         except Exception as e:
             with self.console:
@@ -552,18 +522,13 @@ class ChallengeDCNViewer(InteractiveDCNViewer):
 
     def _update_plot(self):
         super()._update_plot()
-
-        if hasattr(self, 'status_banner'):
-            self._check_success()
+        if hasattr(self, 'status_banner'): self._check_success()
 
     def _check_success(self):
         try:
             sv_current = Statevector.from_instruction(self.circuit)
             sv_target = Statevector(self.target_state)
-
-            fidelity = state_fidelity(sv_current, sv_target)
-
-            if np.isclose(fidelity, 1.0, atol=1e-5):
+            if np.isclose(state_fidelity(sv_current, sv_target), 1.0, atol=1e-5):
                 self.status_banner.value = "<h2 style='text-align: center; color: #27ae60;'>Status: Challenge Completed! 🎉</h2>"
             else:
                 self.status_banner.value = "<h2 style='text-align: center; color: #e74c3c;'>Status: Incomplete ❌</h2>"
