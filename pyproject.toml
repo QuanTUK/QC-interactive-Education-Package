@@ -9,7 +9,7 @@ version = "0.0.5"
 authors = [
   { name="Nikolas Longen", email="nlongen@rptu.de" },
   {name = "Patrick Pfau", email = "ppfau@rptu.de"},
-  {name = "Jonas Bley", email = "jonas.bley@gmx.de"}
+  {name = "Jonas Bley", email = "jonas.bley@gmx.de"},
   { name="Maximilian Kiefer-Emmanouilidis", email="maximilian.kiefer@rptu.de" }
 ]
 description = "Quantuk QC-interactive-Education-Package"
