@@ -10,9 +10,10 @@ Having Python installed You can install this toolset using pip
 pip3 install git+https://github.com/QuanTUK/QC-Education-Package.git  
 ```
 ## Usage
-The following codelines provide a almost minimal examples for using this package 
+The following codelines provide a almost minimal examples for using this package
+
 ```python3
-from qc_education_package import Simulator, CircleNotation, DimensionalCircleNotation
+from qc_interactive_education_package import Simulator, CircleNotation, DimensionalCircleNotation
 
 n = 3  # No. of qubits
 sim = Simulator(n)  # Create a quantum computer simulator object
@@ -28,10 +29,10 @@ For more examples and some interesting insights into the new DCN visualzation we
 
 You can also check out our [visual introduction to quantum communication and computation](https://github.com/QuanTUK/visual_intro_to_QC)
 
-We also include an interactive visualization. In jupyter notebooks, run the following for the interactive viewer to show up: 
+We also include an interactive visualization. In jupyter notebooks, run the following for the interactive viewer to show up:
 
 ```python3
-from qc_education_package import InteractiveDCNViewer
+from qc_interactive_education_package import InteractiveDCNViewer
 
 viewer = InteractiveDCNViewer(num_qubits=3)
 
@@ -42,13 +43,13 @@ viewer.display(figsize=(12.0, 8.0), ui_width='900px')
 There is also challenge mode:
 
 ```python3
-from qc_education_package import ChallengeDCNViewer
+from qc_interactive_education_package import ChallengeDCNViewer
 
 # Initialize the student challenge: Go from |-> to |0>
 viewer = ChallengeDCNViewer(
     num_qubits=1,
     initial_state=[1, -1],  # 1/sqrt(2) (|0> - |1>)
-    target_state=[1, 0]     # |0>
+    target_state=[1, 0]  # |0>
 )
 
 viewer.display()

@@ -5,7 +5,7 @@ from matplotlib.colors import ListedColormap
 # import matplotlib.cm as cm
 import hsluv
 
-from qc_education_package import Simulator, Visualization, DimensionalCircleNotation
+from qc_interactive_education_package import Simulator, Visualization, DimensionalCircleNotation
 
 import matplotlib
 matplotlib.use('Tkagg')
