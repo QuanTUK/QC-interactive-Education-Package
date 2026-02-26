@@ -8,7 +8,7 @@ dependencies = [
   "ipywidgets >= 8.0.0",
   "voila >= 0.5.0"
 ]
-version = "0.2"
+version = "0.2.0"
 authors = [
   { name="Nikolas Longen", email="nlongen@rptu.de" },
   {name = "Patrick Pfau", email = "ppfau@rptu.de"},
@@ -34,4 +34,8 @@ build-backend = "hatchling.build"
 "Bug Tracker" = "https://github.com/QuanTUK/QC-interactive-Education-Package/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["qc_interactive_education_package"]
+packages = ["src/qc_interactive_education_package"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/qc_interactive_education_package/app.ipynb" = "qc_interactive_education_package/app.ipynb"
+"src/qc_interactive_education_package/challenge.ipynb" = "qc_interactive_education_package/challenge.ipynb"
