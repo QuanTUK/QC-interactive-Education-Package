@@ -18,3 +18,10 @@ vis = Visualization(sim, version=2)
 
 # sim.cSwap([1], 2,3)
 vis.show()
+
+# from qc_education_package import InteractiveDCNViewer
+#
+# viewer = InteractiveDCNViewer(num_qubits=8)
+#
+# # Render a large, highly-detailed 12x8 inch plot bounded inside a 900px Jupyter container
+# viewer.show()
