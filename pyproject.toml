@@ -1,5 +1,5 @@
 [project]
-name = "qc_education_package"
+name = "qc_interactive_education_package"
 keywords = ["quantum computing", "circle notation", "education"]
 dependencies = [
   "matplotlib >= 3.7.0",
@@ -8,11 +8,13 @@ dependencies = [
 version = "0.0.5"
 authors = [
   { name="Nikolas Longen", email="nlongen@rptu.de" },
+  {name = "Patrick Pfau", email = "ppfau@rptu.de"},
+  {name = "Jonas Bley", email = "jonas.bley@gmx.de"},
   { name="Maximilian Kiefer-Emmanouilidis", email="maximilian.kiefer@rptu.de" }
 ]
-description = "Quantuk QC-Education-Package"
+description = "Quantuk QC-interactive-Education-Package"
 readme = "README.md"
-requires-python = ">=3.9.2"
+requires-python = ">=3.13"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -25,5 +27,8 @@ build-backend = "hatchling.build"
 
 [project.urls]
 "Homepage" =  "https://www.physik.uni-kl.de/widera/forschung/quantuk"
-"Repository" = "https://github.com/QuanTUK/QC-Education-Package"
-"Bug Tracker" = "https://github.com/QuanTUK/QC-Education-Package/issues"
+"Repository" = "https://github.com/QuanTUK/QC-interactive-Education-Package"
+"Bug Tracker" = "https://github.com/QuanTUK/QC-interactive-Education-Package/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["qc_interactive_education_package"]
