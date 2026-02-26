@@ -17,7 +17,7 @@ class InteractiveDCNViewer:
     An encapsulated interactive UI for dynamically visualizing quantum circuits.
     Features parametric controls, state vector normalization, global phase alignment,
     projective measurements, deterministic state-snapshotting undo mechanism,
-    and a live Dirac notation readout with history and array export capabilities.
+    and a live Dirac notation readout with discrete PNG and SVG export capabilities.
     """
 
     def __init__(self, num_qubits=3, initial_state=None):
@@ -26,7 +26,7 @@ class InteractiveDCNViewer:
 
         self.initial_state = self._normalize_state(initial_state) if initial_state is not None else None
         self._circuit_history = []
-        self._action_history = []  # Tracks descriptions of applied gates/actions
+        self._action_history = []
         self._init_circuit()
 
         # --- UI Components ---
@@ -46,57 +46,70 @@ class InteractiveDCNViewer:
         self.angle_input = widgets.FloatSlider(value=0.5, min=-2.0, max=2.0, step=0.0625, description='Angle (× π):',
                                                disabled=True, layout={'width': '250px'}, readout_format='.3f')
 
-        # --- Buttons (Icons Removed, Spacing Corrected) ---
+        # --- Base Control Buttons ---
         self.apply_btn = widgets.Button(description="Apply",
                                         layout=widgets.Layout(width='85px', height='32px', border='1px solid #2b5797',
                                                               border_radius='4px'))
-        self.apply_btn.style.button_color = '#2d89ef'
-        self.apply_btn.style.text_color = 'white'
+        self.apply_btn.style.button_color = '#2d89ef';
+        self.apply_btn.style.text_color = 'white';
         self.apply_btn.style.font_weight = 'bold'
 
         self.measure_btn = widgets.Button(description="Measure",
                                           layout=widgets.Layout(width='95px', height='32px', border='1px solid #8e44ad',
                                                                 border_radius='4px'))
-        self.measure_btn.style.button_color = '#9b59b6'
-        self.measure_btn.style.text_color = 'white'
+        self.measure_btn.style.button_color = '#9b59b6';
+        self.measure_btn.style.text_color = 'white';
         self.measure_btn.style.font_weight = 'bold'
 
         self.zero_phase_btn = widgets.Button(description="0-Phase",
                                              layout=widgets.Layout(width='90px', height='32px',
                                                                    border='1px solid #d37c15', border_radius='4px'))
-        self.zero_phase_btn.style.button_color = '#f39c12'
-        self.zero_phase_btn.style.text_color = 'white'
+        self.zero_phase_btn.style.button_color = '#f39c12';
+        self.zero_phase_btn.style.text_color = 'white';
         self.zero_phase_btn.style.font_weight = 'bold'
 
         self.undo_btn = widgets.Button(description="Undo",
                                        layout=widgets.Layout(width='80px', height='32px', border='1px solid #7f8c8d',
                                                              border_radius='4px'))
-        self.undo_btn.style.button_color = '#95a5a6'
-        self.undo_btn.style.text_color = 'white'
+        self.undo_btn.style.button_color = '#95a5a6';
+        self.undo_btn.style.text_color = 'white';
         self.undo_btn.style.font_weight = 'bold'
 
         self.reset_btn = widgets.Button(description="Reset",
                                         layout=widgets.Layout(width='80px', height='32px', border='1px solid #b91d47',
                                                               border_radius='4px'))
-        self.reset_btn.style.button_color = '#ee1111'
-        self.reset_btn.style.text_color = 'white'
+        self.reset_btn.style.button_color = '#ee1111';
+        self.reset_btn.style.text_color = 'white';
         self.reset_btn.style.font_weight = 'bold'
 
-        # --- State Inspector & Array Extraction ---
-        self.state_inspector = widgets.HTML(layout={'width': '80%', 'margin': '10px 0px 10px 0px'})
+        # --- State Inspector & Extraction Tools ---
+        self.state_inspector = widgets.HTML(layout={'width': '60%', 'margin': '10px 0px 10px 0px'})
 
         self.show_array_btn = widgets.Button(description="Raw Array",
-                                             layout=widgets.Layout(width='110px', height='32px',
-                                                                   border='1px solid #2c3e50',
-                                                                   border_radius='4px'))
-        self.show_array_btn.style.button_color = '#34495e'
-        self.show_array_btn.style.text_color = 'white'
+                                             layout=widgets.Layout(width='90px', height='32px',
+                                                                   border='1px solid #2c3e50', border_radius='4px'))
+        self.show_array_btn.style.button_color = '#34495e';
+        self.show_array_btn.style.text_color = 'white';
         self.show_array_btn.style.font_weight = 'bold'
 
-        # Combine the Dirac readout and the extraction button into a single horizontal band
-        self.inspector_row = widgets.HBox([self.state_inspector, self.show_array_btn],
-                                          layout={'width': '100%', 'align_items': 'center',
-                                                  'justify_content': 'space-around'})
+        self.export_png_btn = widgets.Button(description="Export PNG",
+                                             layout=widgets.Layout(width='90px', height='32px',
+                                                                   border='1px solid #16a085', border_radius='4px'))
+        self.export_png_btn.style.button_color = '#1abc9c';
+        self.export_png_btn.style.text_color = 'white';
+        self.export_png_btn.style.font_weight = 'bold'
+
+        self.export_svg_btn = widgets.Button(description="Export SVG",
+                                             layout=widgets.Layout(width='90px', height='32px',
+                                                                   border='1px solid #27ae60', border_radius='4px'))
+        self.export_svg_btn.style.button_color = '#2ecc71';
+        self.export_svg_btn.style.text_color = 'white';
+        self.export_svg_btn.style.font_weight = 'bold'
+
+        # Combine the Dirac readout and extraction buttons into a single horizontal flexbox
+        self.inspector_row = widgets.HBox(
+            [self.state_inspector, self.show_array_btn, self.export_png_btn, self.export_svg_btn],
+            layout={'width': '100%', 'align_items': 'center', 'justify_content': 'space-around'})
 
         self.image_widget = widgets.Image(format='png', layout={'min_height': '400px', 'max_width': '100%'})
         self.console = widgets.Output(layout={'border': '1px solid red', 'width': '100%'})
@@ -111,6 +124,8 @@ class InteractiveDCNViewer:
         self.undo_btn.on_click(self._undo_action)
         self.reset_btn.on_click(self._reset_circuit)
         self.show_array_btn.on_click(self._show_state_array)
+        self.export_png_btn.on_click(self._export_png)
+        self.export_svg_btn.on_click(self._export_svg)
 
         # --- Layout ---
         controls_top = widgets.HBox(
@@ -124,7 +139,6 @@ class InteractiveDCNViewer:
                                layout={'align_items': 'center'})
 
         self._update_plot()
-
 
     def _normalize_state(self, statevector):
         sv_array = np.array(statevector, dtype=complex)
@@ -177,7 +191,6 @@ class InteractiveDCNViewer:
                     f"Validation Error: Intersection detected. Qubits {set(targets).intersection(controls)} cannot serve as both control and target.")
                 return
 
-        # Prepare description string for history log (using 1-based indexing for UI clarity)
         targets_ui = [t + 1 for t in targets]
         controls_ui = [c + 1 for c in controls]
         if is_controlled:
@@ -240,7 +253,6 @@ class InteractiveDCNViewer:
                 results.append(f"Qubit {t + 1}: {bit}")
 
             self._update_plot()
-
             with self.console:
                 print(f"💥 Measurement Result: {', '.join(results)}")
 
@@ -290,21 +302,95 @@ class InteractiveDCNViewer:
                 print(f"Reset Error: {str(e)}")
 
     def _show_state_array(self, b):
-        """
-        Extracts the statevector and prints it as a standard Python list of complex numbers
-        to the console output widget, ensuring safe, environment-agnostic copy-pasting.
-        """
         with self.console:
             self.console.clear_output()
             try:
                 sv_data = Statevector.from_instruction(self.circuit).data
                 # Round to 6 decimal places to prevent floating point drift representations
                 formatted_list = [complex(round(c.real, 6), round(c.imag, 6)) for c in sv_data]
+                array_str = repr(formatted_list)
 
-                print("📋 Raw Statevector Array (Copy the list below):")
-                print(repr(formatted_list))
+                # HTML & JavaScript injection for a native browser copy-to-clipboard experience
+                copy_html = f"""
+                <div style="margin: 15px 0px; padding: 15px; border: 1px solid #bdc3c7; border-radius: 4px; background-color: #f8f9fa;">
+                    <div style="color: #2c3e50; font-family: sans-serif; font-weight: bold; margin-bottom: 8px;">
+                        📋 Raw Statevector Array:
+                    </div>
+
+                    <textarea id="array_output_box" readonly 
+                              style="width: 100%; height: 60px; font-family: monospace; font-size: 13px;
+                                     border: 1px solid #ccc; border-radius: 3px; padding: 8px; 
+                                     box-sizing: border-box; resize: none;">{array_str}</textarea>
+
+                    <button onclick="
+                                let ta = document.getElementById('array_output_box'); 
+                                ta.select(); 
+                                document.execCommand('copy'); 
+                                this.innerText='&#10004; Copied to Clipboard!';
+                                this.style.backgroundColor='#27ae60';
+                            " 
+                            style="margin-top: 10px; padding: 8px 16px; background-color: #34495e; 
+                                   color: white; border: none; border-radius: 4px; cursor: pointer; 
+                                   font-weight: bold; font-family: sans-serif; transition: 0.3s;">
+                        Copy to Clipboard
+                    </button>
+                </div>
+                """
+                display(widgets.HTML(copy_html))
+
             except Exception as e:
                 print(f"Array Extraction Error: {type(e).__name__}: {str(e)}")
+
+    def _export_png(self, b):
+        with self.console:
+            self.console.clear_output()
+            try:
+                vis = DimensionalCircleNotation.from_qiskit(self.circuit)
+
+                with plt.rc_context({'figure.figsize': self.render_figsize, 'savefig.dpi': 300}):
+                    b64_str = vis.exportBase64(formatStr='png')
+
+                download_html = f"""
+                <div style="margin: 15px 0px 10px 0px; text-align: center;">
+                    <a href="data:image/png;base64,{b64_str}" download="quantum_state_dcn.png"
+                       style="background-color: #1abc9c; color: white; padding: 10px 20px; 
+                              text-decoration: none; border-radius: 4px; font-weight: bold; 
+                              font-family: sans-serif; border: 1px solid #16a085;">
+                       &#128190; Save High-Res PNG
+                    </a>
+                </div>
+                """
+                display(widgets.HTML(download_html))
+
+            except Exception as e:
+                print(f"PNG Export Error: {type(e).__name__}: {str(e)}")
+
+    def _export_svg(self, b):
+        with self.console:
+            self.console.clear_output()
+            try:
+                vis = DimensionalCircleNotation.from_qiskit(self.circuit)
+
+                # Apply vector-specific rcParams to ensure text is rendered as strings, not paths,
+                # which keeps the SVG scalable, editable, and lightweight.
+                with plt.rc_context({'figure.figsize': self.render_figsize, 'svg.fonttype': 'none'}):
+                    b64_str = vis.exportBase64(formatStr='svg')
+
+                # Use the precise MIME type for SVG data URIs
+                download_html = f"""
+                <div style="margin: 15px 0px 10px 0px; text-align: center;">
+                    <a href="data:image/svg+xml;base64,{b64_str}" download="quantum_state_dcn.svg"
+                       style="background-color: #2ecc71; color: white; padding: 10px 20px; 
+                              text-decoration: none; border-radius: 4px; font-weight: bold; 
+                              font-family: sans-serif; border: 1px solid #27ae60;">
+                       &#128190; Save Scalable Vector (SVG)
+                    </a>
+                </div>
+                """
+                display(widgets.HTML(download_html))
+
+            except Exception as e:
+                print(f"SVG Export Error: {type(e).__name__}: {str(e)}")
 
     def _format_dirac_notation(self, sv_data):
         terms = []
@@ -330,8 +416,6 @@ class InteractiveDCNViewer:
     def _update_plot(self):
         with self.console:
             try:
-                # 1. Build the History Tracker HTML
-                # Adding max-height and overflow-y makes the history scrollable, preventing the widget from becoming too large
                 html_content = "<div style='text-align: left; font-family: monospace; font-size: 14px; max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 4px;'>"
 
                 for i, past_circ in enumerate(self._circuit_history):
@@ -344,7 +428,6 @@ class InteractiveDCNViewer:
                         action = self._action_history[i - 1]
                         html_content += f"<div style='margin-bottom: 5px;'><b>{action}</b> &#8594; {dirac_str}</div>"
 
-                # 2. Add current state to the bottom of the history
                 sv_current = Statevector.from_instruction(self.circuit)
                 current_dirac = self._format_dirac_notation(sv_current.data)
 
@@ -355,19 +438,35 @@ class InteractiveDCNViewer:
                     html_content += f"<div style='margin-bottom: 5px;'><b>{action}</b> &#8594; {current_dirac}</div>"
 
                 html_content += "</div>"
-
-                # 3. Apply the updated HTML to the state_inspector widget
                 self.state_inspector.value = html_content
 
-                # 4. Generate the visualization plot
                 vis = DimensionalCircleNotation.from_qiskit(self.circuit)
-                with plt.rc_context({'figure.figsize': self.render_figsize}):
+                with plt.rc_context({'figure.figsize': self.render_figsize, 'savefig.dpi': 300}):
                     b64_str = vis.exportBase64(formatStr='png')
                 png_bytes = base64.b64decode(b64_str)
                 self.image_widget.value = png_bytes
             except Exception as e:
                 print("An error occurred during visualization generation:")
                 traceback.print_exc()
+
+    def show(self):
+        """
+        Spawns a native OS window displaying the current visualization.
+        Ideal for executing the viewer from a standard Python script.
+        """
+        try:
+            vis = DimensionalCircleNotation.from_qiskit(self.circuit)
+            with plt.rc_context({'figure.figsize': self.render_figsize}):
+                vis.draw()
+                if hasattr(vis, 'fig') and vis.fig is not None:
+                    vis.fig.suptitle("DCN Quantum State Viewer (Static Sandbox Export)")
+                    plt.show(block=True)
+                else:
+                    print("Error: The visualization class failed to generate a Matplotlib 'fig'.")
+        except Exception as e:
+            with self.console:
+                print(f"Standalone Render Error: {type(e).__name__}: {str(e)}")
+            traceback.print_exc()
 
     def display(self, figsize=None, ui_width=None):
         if figsize is not None:
@@ -376,34 +475,6 @@ class InteractiveDCNViewer:
         if ui_width is not None:
             self.image_widget.layout.width = ui_width
         display(self.ui)
-
-    def show(self):
-        """
-        Spawns a native OS window displaying the current visualization.
-        Ideal for executing the viewer from a standard Python script.
-        """
-        try:
-            # Instantiate the visualization object for the current circuit state
-            vis = DimensionalCircleNotation.from_qiskit(self.circuit)
-
-            # Apply the defined aspect ratio before rendering
-            with plt.rc_context({'figure.figsize': self.render_figsize}):
-
-                # FORCE THE RENDER: This triggers the subclass to build the Matplotlib canvas
-                # and populate the previously empty vis.fig attribute.
-                vis.draw()
-
-                if hasattr(vis, 'fig') and vis.fig is not None:
-                    vis.fig.suptitle("DCN Quantum State Viewer (Static Sandbox Export)")
-                    # Block execution until the native window is closed
-                    plt.show(block=True)
-                else:
-                    print("Error: The visualization class failed to generate a Matplotlib 'fig'.")
-
-        except Exception as e:
-            with self.console:
-                print(f"Standalone Render Error: {type(e).__name__}: {str(e)}")
-            traceback.print_exc()
 
 
 class ChallengeDCNViewer(InteractiveDCNViewer):
@@ -469,8 +540,11 @@ class ChallengeDCNViewer(InteractiveDCNViewer):
 
         try:
             vis = DimensionalCircleNotation.from_qiskit(qc_target)
-            with plt.rc_context({'figure.figsize': self.render_figsize}):
+
+            # INJECTION: Force High-DPI for the static target state benchmark
+            with plt.rc_context({'figure.figsize': self.render_figsize, 'savefig.dpi': 300}):
                 b64_str = vis.exportBase64(formatStr='png')
+
             self.target_image_widget.value = base64.b64decode(b64_str)
         except Exception as e:
             with self.console:

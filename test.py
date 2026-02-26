@@ -1,8 +1,3 @@
-from src.qc_education_package import Simulator
-
-from src.qc_education_package import DimensionalCircleNotation as Visualization
-# from src.qc_education_package import CircleNotation as Visualization
-
 import numpy as np
 import matplotlib
 matplotlib.use('Tkagg')
@@ -20,5 +15,5 @@ matplotlib.use('Tkagg')
 # vis.show()
 
 from qc_education_package import launch_app, launch_challenge
-# launch_app()
-launch_challenge()
+launch_app(num_qubits=4)
+# launch_challenge(num_qubits=2,initial_state=[1,0,0,1], target_state=[0,2,-1,0])
