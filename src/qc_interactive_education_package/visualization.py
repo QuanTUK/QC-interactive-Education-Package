@@ -123,22 +123,47 @@ class Visualization:
         )
 
     def show(self):
-        """Method to show current figure. Checks for Jupyter environment
-        to ensure inline rendering.
+        """
+        Method to show current figure.
+        Robustly detects the execution environment and guarantees graphical
+        rendering without triggering IDE unresolved reference warnings.
         """
         self._redraw()
 
+        # 1. Strictly verify if we are executing inside a Jupyter/IPython Kernel
+        in_jupyter = False
         try:
-            # explicit import to check if we are in a notebook environment
-            from IPython.display import display
-            # Render the figure object directly inline
-            display(self.fig)
-            # Close the figure to prevent Double-Rendering
-            # (standard inline backend would try to plot it again at cell end)
-            plt.close(self.fig)
+            # Explicit import resolves IDE "Unresolved reference" warnings
+            from IPython import get_ipython
+
+            # get_ipython() returns None if IPython is installed but not running a kernel
+            ipython_instance = get_ipython()
+            if ipython_instance is not None:
+                shell = ipython_instance.__class__.__name__
+                if shell == 'ZMQInteractiveShell':
+                    in_jupyter = True
         except ImportError:
-            # Fallback for standard Python scripts (non-notebook)
-            plt.show()
+            # IPython is not installed; we are definitely in a standard terminal
+            pass
+
+        if in_jupyter:
+            from IPython.display import display, Image
+            import io
+            import matplotlib.pyplot as plt
+
+            # 2. Bypass backend state machine: Render to a byte buffer.
+            buf = io.BytesIO()
+            self.fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
+
+            # 3. Clean up RAM immediately to prevent memory leaks
+            plt.close(self.fig)
+
+            # 4. Push the raw PNG bytes directly into the browser DOM
+            display(Image(data=buf.getvalue()))
+        else:
+            # 5. Fallback for standard Python terminal/IDE execution
+            import matplotlib.pyplot as plt
+            plt.show(block=True)
 
     def _redraw(self):
         """Checks if simulator state is changed and redraws the image if so."""
@@ -907,5 +932,4 @@ class DimensionalCircleNotation(Visualization):
                 horizontalalignment="center",
                 verticalalignment="center",
             )
-
 
