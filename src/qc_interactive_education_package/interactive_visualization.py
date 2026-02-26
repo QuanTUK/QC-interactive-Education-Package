@@ -9,6 +9,7 @@ import traceback
 import numpy as np
 import base64
 from io import BytesIO
+import os
 
 from .visualization import DimensionalCircleNotation
 
@@ -31,7 +32,7 @@ class InteractiveDCNViewer:
         self._action_history = []
         self._init_circuit()
 
-        # --- UI Components ---
+        # --- UI Components (Controls) ---
         self.gate_dropdown = widgets.Dropdown(options=['H', 'X', 'Y', 'Z', 'Rx', 'Ry', 'Rz'], value='H',
                                               description='Gate:', layout={'width': '180px'})
         self.controlled_checkbox = widgets.Checkbox(value=False, description='Controlled', indent=False,
@@ -84,38 +85,73 @@ class InteractiveDCNViewer:
         self.reset_btn.style.text_color = 'white';
         self.reset_btn.style.font_weight = 'bold'
 
-        # --- State Inspector & Extraction Tools ---
-        self.state_inspector = widgets.HTML(layout={'width': '60%', 'margin': '10px 0px 10px 0px'})
+        # --- Base State Inspector ---
+        self.state_inspector = widgets.HTML(layout={'width': '100%', 'margin': '10px 0px 5px 0px'})
 
-        self.show_array_btn = widgets.Button(description="Raw Array", layout=widgets.Layout(width='90px', height='32px',
-                                                                                            border='1px solid #2c3e50',
-                                                                                            border_radius='4px'))
+        btn_layout = widgets.Layout(width='115px', height='32px', border_radius='4px')
+
+        self.show_array_btn = widgets.Button(description="Raw Array", layout=btn_layout)
         self.show_array_btn.style.button_color = '#34495e';
         self.show_array_btn.style.text_color = 'white';
-        self.show_array_btn.style.font_weight = 'bold'
+        self.show_array_btn.style.font_weight = 'bold';
+        self.show_array_btn.layout.border = '1px solid #2c3e50'
 
-        self.export_png_btn = widgets.Button(description="Export PNG",
-                                             layout=widgets.Layout(width='90px', height='32px',
-                                                                   border='1px solid #16a085', border_radius='4px'))
+        self.export_png_btn = widgets.Button(description="DCN PNG", layout=btn_layout)
         self.export_png_btn.style.button_color = '#1abc9c';
         self.export_png_btn.style.text_color = 'white';
-        self.export_png_btn.style.font_weight = 'bold'
+        self.export_png_btn.style.font_weight = 'bold';
+        self.export_png_btn.layout.border = '1px solid #16a085'
 
-        self.export_svg_btn = widgets.Button(description="Export SVG",
-                                             layout=widgets.Layout(width='90px', height='32px',
-                                                                   border='1px solid #27ae60', border_radius='4px'))
+        self.export_svg_btn = widgets.Button(description="DCN SVG", layout=btn_layout)
         self.export_svg_btn.style.button_color = '#2ecc71';
         self.export_svg_btn.style.text_color = 'white';
-        self.export_svg_btn.style.font_weight = 'bold'
+        self.export_svg_btn.style.font_weight = 'bold';
+        self.export_svg_btn.layout.border = '1px solid #27ae60'
 
-        self.inspector_row = widgets.HBox(
-            [self.state_inspector, self.show_array_btn, self.export_png_btn, self.export_svg_btn],
-            layout={'width': '100%', 'align_items': 'center', 'justify_content': 'space-around'})
+        self.export_circ_png_btn = widgets.Button(description="Circ PNG", layout=btn_layout)
+        self.export_circ_png_btn.style.button_color = '#3498db';
+        self.export_circ_png_btn.style.text_color = 'white';
+        self.export_circ_png_btn.style.font_weight = 'bold';
+        self.export_circ_png_btn.layout.border = '1px solid #2980b9'
+
+        self.export_circ_svg_btn = widgets.Button(description="Circ SVG", layout=btn_layout)
+        self.export_circ_svg_btn.style.button_color = '#2980b9';
+        self.export_circ_svg_btn.style.text_color = 'white';
+        self.export_circ_svg_btn.style.font_weight = 'bold';
+        self.export_circ_svg_btn.layout.border = '1px solid #1c5980'
+
+        # --- Automatic Environment Detection ---
+        # Voilà explicitly sets SERVER_SOFTWARE. Standard Jupyter does not.
+        is_voila = 'voila' in os.environ.get('SERVER_SOFTWARE', '').lower()
+
+        # The Raw Array button works universally via JS injection, so it is always included.
+        active_buttons = [self.show_array_btn]
+
+        # Only append the HTML download buttons if the kernel confirms it is in Voilà
+        if is_voila:
+            active_buttons.extend([
+                self.export_png_btn,
+                self.export_svg_btn,
+                self.export_circ_png_btn,
+                self.export_circ_svg_btn
+            ])
+
+        # Group the active buttons into a centered horizontal row
+        self.extraction_buttons_row = widgets.HBox(
+            active_buttons,
+            layout={'width': '100%', 'justify_content': 'center', 'margin': '5px 0px 15px 0px', 'grid_gap': '10px'}
+        )
+
+        # Combine the inspector and the buttons into the unified bottom section
+        self.bottom_section = widgets.VBox([self.state_inspector, self.extraction_buttons_row],
+                                           layout={'width': '100%'})
 
         # --- Output Canvases ---
-        self.image_widget = widgets.Image(format='png', layout={'min_height': '400px', 'max_width': '100%'})
-        self.circuit_image_widget = widgets.Image(format='png', layout={'max_width': '100%', 'margin': '10px 0px', 'display': 'none'})
-        self.console = widgets.Output(layout={'border': '1px solid #ccc', 'width': '100%'})  # Softened border color
+        self.image_widget = widgets.Image(format='png',
+                                          layout={'min_height': '400px', 'max_width': '100%', 'margin': '10px 0px'})
+        self.circuit_image_widget = widgets.Image(format='png',
+                                                  layout={'max_width': '100%', 'margin': '10px 0px', 'display': 'none'})
+        self.console = widgets.Output(layout={'border': '1px solid #ccc', 'width': '100%'})
 
         # --- Event Binding ---
         self.gate_dropdown.observe(self._toggle_angle_slider, names='value')
@@ -129,21 +165,26 @@ class InteractiveDCNViewer:
         self.show_array_btn.on_click(self._show_state_array)
         self.export_png_btn.on_click(self._export_png)
         self.export_svg_btn.on_click(self._export_svg)
+        self.export_circ_png_btn.on_click(self._export_circ_png)
+        self.export_circ_svg_btn.on_click(self._export_circ_svg)
 
-        # --- Layout Assembly ---
+        # --- Layout Assembly (Reordered per user specification) ---
         self.controls_top = widgets.HBox(
             [self.gate_dropdown, self.controlled_checkbox, self.control_selector, self.target_selector],
             layout={'align_items': 'center'})
         self.controls_bottom = widgets.HBox(
             [self.angle_input, self.apply_btn, self.measure_btn, self.zero_phase_btn, self.undo_btn, self.reset_btn])
 
-        ui_elements = [self.controls_top, self.controls_bottom, self.inspector_row, self.circuit_image_widget, self.image_widget, self.console]
-        # if self.show_circuit:
-        #     ui_elements.append(self.circuit_image_widget)
-        # ui_elements.extend([self.image_widget, self.console])
+        ui_elements = [
+            self.controls_top,
+            self.controls_bottom,
+            self.image_widget,  # DCN Visualization Middle 1
+            self.circuit_image_widget,  # Quantum Circuit Middle 2
+            self.bottom_section,  # History and Exports Bottom
+            self.console
+        ]
 
         self.ui = widgets.VBox(ui_elements, layout={'align_items': 'center', 'width': '100%'})
-
         self._update_plot()
 
     def _normalize_state(self, statevector):
@@ -364,6 +405,57 @@ class InteractiveDCNViewer:
             except Exception as e:
                 print(f"SVG Export Error: {type(e).__name__}: {str(e)}")
 
+    def _export_circ_png(self, b):
+        with self.console:
+            self.console.clear_output()
+            try:
+                # Dynamically generate the figure at standard scale
+                fig = self.circuit.draw(output='mpl')
+                buf = BytesIO()
+                # Enforce high DPI for sharp pixel density in the PNG
+                fig.savefig(buf, format='png', bbox_inches='tight', dpi=300)
+                plt.close(fig)
+
+                b64_str = base64.b64encode(buf.getvalue()).decode('utf-8')
+
+                download_html = f"""
+                <div style="margin: 15px 0px 10px 0px; text-align: center;">
+                    <a href="data:image/png;base64,{b64_str}" download="quantum_circuit.png"
+                       style="background-color: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; font-family: sans-serif; border: 1px solid #2980b9;">
+                       &#128190; Save Circuit PNG
+                    </a>
+                </div>
+                """
+                display(widgets.HTML(download_html))
+            except Exception as e:
+                print(f"Circuit PNG Export Error: {type(e).__name__}: {str(e)}")
+
+    def _export_circ_svg(self, b):
+        with self.console:
+            self.console.clear_output()
+            try:
+                fig = self.circuit.draw(output='mpl')
+                buf = BytesIO()
+
+                # Apply vector-specific configuration to ensure text remains scalable strings
+                with plt.rc_context({'svg.fonttype': 'none'}):
+                    fig.savefig(buf, format='svg', bbox_inches='tight')
+                plt.close(fig)
+
+                b64_str = base64.b64encode(buf.getvalue()).decode('utf-8')
+
+                download_html = f"""
+                <div style="margin: 15px 0px 10px 0px; text-align: center;">
+                    <a href="data:image/svg+xml;base64,{b64_str}" download="quantum_circuit.svg"
+                       style="background-color: #2980b9; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; font-family: sans-serif; border: 1px solid #1c5980;">
+                       &#128190; Save Scalable Circuit (SVG)
+                    </a>
+                </div>
+                """
+                display(widgets.HTML(download_html))
+            except Exception as e:
+                print(f"Circuit SVG Export Error: {type(e).__name__}: {str(e)}")
+
     def _format_dirac_notation(self, sv_data):
         terms = []
         for index, amplitude in enumerate(sv_data):
@@ -410,7 +502,7 @@ class InteractiveDCNViewer:
 
                 # Conditional Circuit Rendering
                 if self.show_circuit:
-                    fig = self.circuit.draw(output='mpl')
+                    fig = self.circuit.draw(output='mpl',scale=0.4)
                     buf = BytesIO()
                     fig.savefig(buf, format='png', bbox_inches='tight', dpi=300, transparent=False)
                     plt.close(fig)
@@ -431,7 +523,7 @@ class InteractiveDCNViewer:
         try:
             # 1. Spawn a separate window for the circuit if requested
             if self.show_circuit:
-                circ_fig = self.circuit.draw(output='mpl')
+                circ_fig = self.circuit.draw(output='mpl',scale=0.4)
                 circ_fig.suptitle("Quantum Circuit Pipeline")
 
             # 2. Spawn the DCN Visualization window
@@ -501,11 +593,18 @@ class ChallengeDCNViewer(InteractiveDCNViewer):
                  self.target_image_widget], layout={'align_items': 'center', 'width': '50%'})
         ], layout={'width': '100%', 'justify_content': 'space-around', 'align_items': 'flex-start'})
 
-        # The circuit_image_widget is now permanently in the VBox, managed via CSS
-        ui_elements = [self.status_banner, self.controls_top, self.controls_bottom, self.inspector_row,
-                       self.circuit_image_widget, comparison_box, self.console]
-        self.ui = widgets.VBox(ui_elements, layout={'align_items': 'center', 'width': '100%'})
+        # Apply the reordered vertical layout hierarchy
+        ui_elements = [
+            self.status_banner,
+            self.controls_top,
+            self.controls_bottom,
+            comparison_box,  # DCN Visualization Middle 1
+            self.circuit_image_widget,  # Quantum Circuit Middle 2
+            self.bottom_section,  # History and Exports Bottom
+            self.console
+        ]
 
+        self.ui = widgets.VBox(ui_elements, layout={'align_items': 'center', 'width': '100%'})
         self._check_success()
 
     def _render_target(self):
