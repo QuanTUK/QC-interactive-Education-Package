@@ -7,7 +7,7 @@ This toolset may be  used by educators or lectureres to prepare materials for th
 For using this package You need Python version 3.14 or higher (for the interactive python viewer). We recommend installing the latest [python release](https://www.python.org/downloads/).
 Having Python installed You can install this toolset using pip
 ```bash
-pip3 install git+https://github.com/QuanTUK/QC-Education-Package.git  
+pip3 install git+https://github.com/QuanTUK/QC-interactive-Education-Package
 ```
 ## Usage
 The following codelines provide a almost minimal examples for using this package
