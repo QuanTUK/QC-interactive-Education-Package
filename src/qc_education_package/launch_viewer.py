@@ -7,38 +7,38 @@ import json
 def launch_app(num_qubits=3, initial_state=None):
     """
     Launches the Voilà server for the interactive quantum sandbox.
-
-    Args:
-        num_qubits (int): Number of qubits for the circuit sandbox.
-        initial_state (list or None): The starting statevector amplitudes.
-                                      If None, defaults to |0...0>.
+    Can be called from anywhere once the package is installed.
     """
     print(f"Initializing Quantum Sandbox Environment ({num_qubits} Qubits)...")
 
-    # Safety Check for the notebook
-    if not os.path.exists("app.ipynb"):
-        print("\n❌ ERROR: Could not find 'app.ipynb' in the current directory.")
-        print("Please ensure you created this file and saved it in the same folder as this script.")
+    # 1. Dynamically resolve the absolute path to the package directory
+    # __file__ points to this python script. dirname gets the folder it is inside.
+    package_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Construct the absolute path to the notebook
+    notebook_path = os.path.join(package_dir, "app.ipynb")
+
+    # Safety Check using the absolute path
+    if not os.path.exists(notebook_path):
+        print(f"\n❌ ERROR: Could not find 'app.ipynb' at {notebook_path}")
+        print("Ensure the notebook is bundled correctly in your package directory.")
         return
 
     # Prepare the custom environment variables for the subprocess
     custom_env = os.environ.copy()
     custom_env["VIEWER_QUBITS"] = str(num_qubits)
-
-    # Serialize the list (or None) to a JSON string
     custom_env["VIEWER_INITIAL"] = json.dumps(initial_state)
 
     print("Starting local server... A browser window will open automatically once ready.")
 
-    # Execute Voila targeting the app notebook
+    # 2. Execute Voila targeting the ABSOLUTE path to the notebook
     command = [
         sys.executable, "-m", "voila",
-        "app.ipynb",
+        notebook_path,  # <--- Changed from "app.ipynb"
         "--theme=light"
     ]
 
     try:
-        # Pass the customized environment dictionary to the subprocess
         subprocess.run(command, env=custom_env)
     except KeyboardInterrupt:
         print("\nShutting down Quantum Sandbox...")
@@ -47,6 +47,7 @@ def launch_app(num_qubits=3, initial_state=None):
 def launch_challenge(num_qubits=1, initial_state=[1, 0], target_state=[1, -1]):
     """
     Launches the Voilà server with dynamically injected quantum states.
+    Can be called from anywhere once the package is installed.
 
     Args:
         num_qubits (int): Number of qubits for the circuit.
@@ -55,25 +56,33 @@ def launch_challenge(num_qubits=1, initial_state=[1, 0], target_state=[1, -1]):
     """
     print(f"Initializing Quantum Challenge Environment ({num_qubits} Qubits)...")
 
-    # Safety Check for the challenge notebook
-    if not os.path.exists("challenge.ipynb"):
-        print("\n❌ ERROR: Could not find 'challenge.ipynb' in the current directory.")
-        print("Please ensure you created this file and saved it in the same folder as this script.")
+    # 1. Dynamically resolve the absolute path to the package directory
+    # __file__ points to this python script. dirname gets the folder it is inside.
+    package_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Construct the absolute path to the notebook
+    notebook_path = os.path.join(package_dir, "challenge.ipynb")
+
+    # Safety Check for the challenge notebook using the absolute path
+    if not os.path.exists(notebook_path):
+        print(f"\n❌ ERROR: Could not find 'challenge.ipynb' at {notebook_path}")
+        print("Ensure the notebook is bundled correctly in your package directory.")
         return
 
-    # 1. Prepare the custom environment variables for the subprocess
+    # 2. Prepare the custom environment variables for the subprocess
     custom_env = os.environ.copy()
     custom_env["CHALLENGE_QUBITS"] = str(num_qubits)
+
     # Serialize lists to JSON strings to safely pass them through the OS layer
     custom_env["CHALLENGE_INITIAL"] = json.dumps(initial_state)
     custom_env["CHALLENGE_TARGET"] = json.dumps(target_state)
 
     print("Starting local server... A browser window will open automatically once ready.")
 
-    # 2. Execute Voila targeting the challenge notebook
+    # 3. Execute Voila targeting the ABSOLUTE path to the challenge notebook
     command = [
         sys.executable, "-m", "voila",
-        "challenge.ipynb",
+        notebook_path,  # <--- Changed from "challenge.ipynb"
         "--theme=light"
     ]
 

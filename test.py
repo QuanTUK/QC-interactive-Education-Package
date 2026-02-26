@@ -10,18 +10,15 @@ matplotlib.use('Tkagg')
 # Quantum Key Distribution
 
 # Register as i-th row of comp. basis matrix 
-n = 1
-sim = Simulator(n)
-# sim.writeComplex([0, 1, 1, 0, 0, 0, 0, 0])
-
-vis = Visualization(sim, version=2)
-
-# sim.cSwap([1], 2,3)
-vis.show()
-
-# from qc_education_package import InteractiveDCNViewer
+# n = 1
+# sim = Simulator(n)
+# # sim.writeComplex([0, 1, 1, 0, 0, 0, 0, 0])
 #
-# viewer = InteractiveDCNViewer(num_qubits=8)
+# vis = Visualization(sim, version=2)
 #
-# # Render a large, highly-detailed 12x8 inch plot bounded inside a 900px Jupyter container
-# viewer.show()
+# # sim.cSwap([1], 2,3)
+# vis.show()
+
+from qc_education_package import launch_app, launch_challenge
+# launch_app()
+launch_challenge()

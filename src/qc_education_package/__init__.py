@@ -9,4 +9,4 @@ from .simulator import Simulator
 from .visualization import Visualization, CircleNotation, DimensionalCircleNotation
 from .dim_Bloch_spheres import DimensionalBlochSpheres
 from .interactive_visualization import InteractiveDCNViewer, ChallengeDCNViewer
-from .launch_viewer import launch_app
+from .launch_viewer import launch_app, launch_challenge
