@@ -1,7 +1,7 @@
 import qiskit
 from qiskit import QuantumCircuit
 from qiskit.quantum_info import Statevector, state_fidelity
-from qiskit.circuit.library import HGate, XGate, YGate, ZGate, RXGate, RYGate, RZGate
+from qiskit.circuit.library import HGate, XGate, YGate, ZGate, PhaseGate, RXGate, RYGate, RZGate
 import ipywidgets as widgets
 from IPython.display import display
 import matplotlib.pyplot as plt
@@ -33,7 +33,7 @@ class InteractiveDCNViewer:
         self._init_circuit()
 
         # --- UI Components (Controls) ---
-        self.gate_dropdown = widgets.Dropdown(options=['H', 'X', 'Y', 'Z', 'Rx', 'Ry', 'Rz'], value='H',
+        self.gate_dropdown = widgets.Dropdown(options=['H', 'X', 'Y', 'Z', 'P', 'Rx', 'Ry', 'Rz'], value='H',
                                               description='Gate:', layout={'width': '180px'})
         self.controlled_checkbox = widgets.Checkbox(value=False, description='Controlled', indent=False,
                                                     disabled=(self.num_qubits < 2),
@@ -212,7 +212,7 @@ class InteractiveDCNViewer:
                 print(f"Initialization Error: {type(e).__name__}: {str(e)}")
 
     def _toggle_angle_slider(self, change):
-        self.angle_input.disabled = (change.new not in ['Rx', 'Ry', 'Rz'])
+        self.angle_input.disabled = (change.new not in ['P', 'Rx', 'Ry', 'Rz'])
 
     def _toggle_control_selector(self, change):
         self.control_selector.disabled = not change.new
@@ -243,7 +243,7 @@ class InteractiveDCNViewer:
         if is_controlled:
             action_desc = f"Apply Controlled-{gate_str} on Target(s): {targets_ui} with Control(s): {controls_ui}"
         else:
-            if gate_str in ['Rx', 'Ry', 'Rz']:
+            if gate_str in ['P', 'Rx', 'Ry', 'Rz']:
                 action_desc = f"Apply {gate_str}({self.angle_input.value:.3f}π) on Target(s): {targets_ui}"
             else:
                 action_desc = f"Apply {gate_str} on Target(s): {targets_ui}"
@@ -259,6 +259,8 @@ class InteractiveDCNViewer:
             base_gate = YGate()
         elif gate_str == 'Z':
             base_gate = ZGate()
+        elif gate_str == 'P':
+            base_gate = PhaseGate(angle_radians)
         elif gate_str == 'Rx':
             base_gate = RXGate(angle_radians)
         elif gate_str == 'Ry':
