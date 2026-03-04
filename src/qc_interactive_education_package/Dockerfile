@@ -20,10 +20,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application (notebooks, source code)
-COPY . .
+COPY ../.. .
 
 # Expose the standard HTTP port
 EXPOSE 8080
 
-# Execute Voilà bound to all network interfaces (0.0.0.0) so the cloud router can access it
-CMD ["voila", "--no-browser", "--port=8080", "--Voila.ip=0.0.0.0", "--theme=light", "app.ipynb"]
+# Allow all origins so Google Cloud Run health checks are not rejected by Tornado.
+CMD voila --no-browser --port=${PORT:-8080} --Voila.ip=0.0.0.0 --ServerApp.allow_origin="*" --ServerApp.disable_check_xsrf=True --theme=light app.ipynb
