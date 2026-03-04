@@ -914,24 +914,27 @@ class InteractiveViewer:
     def display(self, figsize=None, ui_width=None, show_circuit=None):
         """Renders the unified application to the Jupyter DOM."""
 
-        # 1. Update internal properties if arguments are provided
         if figsize is not None:
             self.render_figsize = figsize
         if show_circuit is not None:
             self.show_circuit = show_circuit
 
-        # 2. Mathematically enforce the CSS visibility unconditionally
         self.circuit_image_widget.layout.display = 'block' if self.show_circuit else 'none'
-
-        # 3. Force the Matplotlib engine to calculate and inject the image bytes
         self._update_plot()
 
-        # 4. Apply DOM scaling
         if ui_width is not None:
             self.image_widget.layout.width = ui_width
 
-        # 5. Render the parent Flexbox container
-        from IPython.display import display as ipy_display
+        # 5. Render the Polyfill and the parent Flexbox container
+        from IPython.display import display as ipy_display, HTML
+
+        ipy_display(HTML("""
+        <script>
+        window.MathJax = window.MathJax || {};
+        window.MathJax.Hub = window.MathJax.Hub || {Queue: function(){}};
+        </script>
+        """))
+
         ipy_display(self.ui)
 
 class ChallengeViewer(InteractiveViewer):

@@ -234,7 +234,18 @@ class QuantumViewer:
             viewer.display()
 
     def display(self):
+        from IPython.display import display as ipy_display, HTML
+
+        # INJECT THE MATHJAX POLYFILL
+        # This guarantees ipywidgets will not crash when hunting for the legacy engine.
+        ipy_display(HTML("""
+        <script>
+        window.MathJax = window.MathJax || {};
+        window.MathJax.Hub = window.MathJax.Hub || {Queue: function(){}};
+        </script>
+        """))
+
         with self.output:
             clear_output(wait=True)
-            display(self.menu_container)
-        display(self.output)
+            ipy_display(self.menu_container)
+        ipy_display(self.output)
