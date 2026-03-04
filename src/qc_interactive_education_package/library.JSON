@@ -1,0 +1,23 @@
+{
+  "algorithms": {
+    "Bell State Entanglement": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[2];\ncreg c[2];\nh q[0];\ncx q[0],q[1];\n",
+    "GHZ State Entanglement": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[3];\ncreg c[3];\nh q[0];\ncx q[0],q[1];\ncx q[1],q[2];\n"
+  },
+  "challenges": {
+    "Level 1: Create a Superposition (|+⟩)": {
+      "num_qubits": 1,
+      "initial_state": [[1.0, 0.0], [0.0, 0.0]],
+      "target_state": [[0.70710678118, 0.0], [0.70710678118, 0.0]]
+    },
+    "Level 2: Phase Flip (|1⟩ to |-⟩)": {
+      "num_qubits": 1,
+      "initial_state": [[0.0, 0.0], [1.0, 0.0]],
+      "target_state": [[0.70710678118, 0.0], [-0.70710678118, 0.0]]
+    },
+    "Level 3: Construct the Bell State": {
+      "num_qubits": 2,
+      "initial_state": [[1.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]],
+      "target_state": [[0.70710678118, 0.0], [0.0, 0.0], [0.0, 0.0], [0.70710678118, 0.0]]
+    }
+  }
+}
