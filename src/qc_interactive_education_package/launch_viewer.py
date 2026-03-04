@@ -130,7 +130,7 @@ def launch_challenge(num_qubits=1, initial_state=[1, 0], target_state=[1, -1], s
 # SPA ENTRY POINT APPLICATION
 # ==========================================
 
-class QuantumAppLauncher:
+class QuantumViewer:
     """
     The Single Page Application (SPA) entry point.
     """
@@ -142,7 +142,7 @@ class QuantumAppLauncher:
         self.algos = QuantumCurriculum.get_algorithms()
         self.challenges = QuantumCurriculum.get_challenges()
 
-        self.title = widgets.HTML("<h1 style='text-align: center; color: #2c3e50;'>Quantum Education Suite</h1>")
+        self.title = widgets.HTML("<h1 style='text-align: center; color: #2c3e50;'>Quantum Viewer</h1>")
         self.subtitle = widgets.HTML(
             "<h4 style='text-align: center; color: #7f8c8d; margin-bottom: 20px;'>Select your learning environment</h4>")
         self.header = widgets.VBox([self.title, self.subtitle], layout={'width': '100%'})
