@@ -628,6 +628,70 @@ class InteractiveViewer:
                 print(res)
 
             # ==========================================
+            # QUANTUM TELEPORTATION INTELLIGENT PARSER
+            # ==========================================
+            # Trigger if N=3 and Alice measures both her qubits (1 and 2 in the UI)
+            if self.num_qubits == 3 and set(targets_ui) == {1, 2}:
+                # Verify Teleportation setup: Only Qubit 1 (index 0) should have an initial superposition
+                is_teleportation = True
+                for i in range(2, 8):
+                    if np.abs(self.initial_state[i]) > 1e-6:
+                        is_teleportation = False
+                        break
+
+                if is_teleportation:
+                    alpha = complex(self.initial_state[0])
+                    beta = complex(self.initial_state[1])
+
+                    print(f"\n--- 🌌 Quantum Teleportation Analysis ---")
+
+                    def fmt_amp(c):
+                        real = np.real(c)
+                        imag = np.imag(c)
+                        if np.abs(imag) < 1e-5: return f"{real:.3f}"
+                        if np.abs(real) < 1e-5: return f"{imag:.3f}i"
+                        sign = "+" if imag >= 0 else "-"
+                        return f"({real:.3f} {sign} {np.abs(imag):.3f}i)"
+
+                    orig_state_str = f"{fmt_amp(alpha)}|0⟩ + {fmt_amp(beta)}|1⟩"
+                    print(f"Original Random State (Alice's Qubit 1): {orig_state_str}")
+
+                    # Extract Bob's state from the collapsed statevector using bitwise index masking
+                    # In Qiskit's little-endian system, Bob's Qubit is q2 (the most significant bit, value 4)
+                    sv_data = sv_collapsed.data
+                    bob_alpha, bob_beta = 0.0j, 0.0j
+
+                    for idx, amp in enumerate(sv_data):
+                        if np.abs(amp) > 1e-6:
+                            if (idx & 4) == 0:  # MSB (Qubit 3) is 0
+                                bob_alpha = amp
+                            else:  # MSB (Qubit 3) is 1
+                                bob_beta = amp
+
+                    # Mathematically align the global phase for a clean visual UI comparison
+                    if np.abs(alpha) > 1e-6 and np.abs(bob_alpha) > 1e-6:
+                        phase_shift = np.angle(alpha) - np.angle(bob_alpha)
+                        bob_alpha *= np.exp(1j * phase_shift)
+                        bob_beta *= np.exp(1j * phase_shift)
+                    elif np.abs(beta) > 1e-6 and np.abs(bob_beta) > 1e-6:
+                        phase_shift = np.angle(beta) - np.angle(bob_beta)
+                        bob_alpha *= np.exp(1j * phase_shift)
+                        bob_beta *= np.exp(1j * phase_shift)
+
+                    bob_state_str = f"{fmt_amp(bob_alpha)}|0⟩ + {fmt_amp(bob_beta)}|1⟩"
+                    print(f"Teleported State (Bob's Qubit 3):      {bob_state_str}")
+
+                    # Exact Mathematical Fidelity Check
+                    orig_vec = np.array([alpha, beta])
+                    bob_vec = np.array([bob_alpha, bob_beta])
+                    fidelity = np.abs(np.vdot(orig_vec, bob_vec)) ** 2
+
+                    if np.isclose(fidelity, 1.0):
+                        print("🎉 Success! The mathematical fidelity is 100%. Alice's state was teleported.")
+                    else:
+                        print("⚠️ Mismatch detected. The deferred measurement gates (CX, CZ) may be missing.")
+
+            # ==========================================
             # SHOR'S ALGORITHM INTELLIGENT PARSER
             # ==========================================
             # Trigger only if N=8 and the 4 counting qubits are targeted
@@ -670,6 +734,12 @@ class InteractiveViewer:
                             print("\nResult: Trivial factors found. Click 'Undo' and measure again.")
 
             self._update_plot()
+
+        except Exception as e:
+            self._circuit_history.pop()
+            self._action_history.pop()
+            with self.console:
+                print(f"Measurement Error: {type(e).__name__}: {str(e)}")
 
         except Exception as e:
             self._circuit_history.pop()

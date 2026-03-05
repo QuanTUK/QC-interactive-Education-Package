@@ -27,123 +27,225 @@ class QuantumCurriculum:
         qc_ghz.cx(1, 2)
         algos["GHZ State Entanglement"] = qc_ghz
 
-        # --- Algorithm 9: Quantum Teleportation (Randomized) ---
-        qc_teleport = QuantumCircuit(3)
-
-        # 1. Generate a mathematically random pure state for Alice to teleport
-        # Seed is omitted to ensure a uniquely random statevector on every launch
-        rand_psi = random_statevector(2)
-        rand_psi = Statevector(np.exp(-1j * np.angle(rand_psi.data[0])) * rand_psi.data).data
-        qc_teleport.initialize(rand_psi, 0)
-
-        # 2. Establish the EPR pair (Entanglement) between Alice (q1) and Bob (q2)
-        qc_teleport.h(1)
-        qc_teleport.cx(1, 2)
-
-        # 3. Alice performs a Bell-basis transformation on her local qubits (q0, q1)
-        qc_teleport.cx(0, 1)
-        qc_teleport.h(0)
-
-        # 4. Bob applies conditional Pauli corrections via the Deferred Measurement Principle
-        # If q1 is |1>, apply X. If q0 is |1>, apply Z.
-        qc_teleport.cx(1, 2)
-        qc_teleport.cz(0, 2)
-
-        algos["Quantum Teleportation (Random State)"] = qc_teleport
-
         # --- Algorithm 3: Quantum Fourier Transform ---
         qc_qft = QuantumCircuit(3)
         qc_qft.append(QFTGate(3), [0, 1, 2])
         algos["Quantum Fourier Transform (3Q)"] = qc_qft.decompose()
 
-        # --- Algorithm 4: Grover's Search (|101>) ---
-        qc_grover = QuantumCircuit(3)
-        qc_grover.h([0, 1, 2])
-        oracle = QuantumCircuit(3)
-        oracle.cz(0, 2)
-        qc_grover = qc_grover.compose(grover_operator(oracle))
-        algos["Grover's Search (Target |101>)"] = qc_grover
+        # ==========================================
+        # GROVER'S SEARCH DYNAMIC BUILDER
+        # ==========================================
+        def build_grover(target_bitstring):
+            n = len(target_bitstring)
+            qc = QuantumCircuit(n)
 
-        # --- Algorithm 5: 3-Qubit Bit-Flip Error Correction ---
+            # 1. Initialize uniform superposition
+            qc.h(range(n))
+
+            # 2. Construct the strict single-state Oracle
+            oracle = QuantumCircuit(n, name="Oracle")
+            # Qiskit uses little-endian ordering (rightmost bit is q_0)
+            for i, bit in enumerate(reversed(target_bitstring)):
+                if bit == '0':
+                    oracle.x(i)
+
+            # Apply Multi-Controlled Phase Flip (MCZ) via Phase Kickback
+            oracle.h(n - 1)
+            oracle.mcx(list(range(n - 1)), n - 1)
+            oracle.h(n - 1)
+
+            # Uncompute the boundary X gates
+            for i, bit in enumerate(reversed(target_bitstring)):
+                if bit == '0':
+                    oracle.x(i)
+
+            # Encapsulate into a single atomic operation for the timeline
+            oracle_gate = oracle.to_gate(label="Oracle")
+
+            # 3. Construct the Diffuser (Inversion about the mean)
+            diffuser = QuantumCircuit(n, name="Diffuser")
+            diffuser.h(range(n))
+            diffuser.x(range(n))
+            diffuser.h(n - 1)
+            diffuser.mcx(list(range(n - 1)), n - 1)
+            diffuser.h(n - 1)
+            diffuser.x(range(n))
+            diffuser.h(range(n))
+
+            # Encapsulate into a single atomic operation for the timeline
+            diffuser_gate = diffuser.to_gate(label="Diffuser")
+
+            import numpy as np
+            optimal_iterations = int(np.floor((np.pi / 4.0) * np.sqrt(2 ** n)))
+
+            for _ in range(optimal_iterations):
+                qc.append(oracle_gate, range(n))
+                qc.append(diffuser_gate, range(n))
+
+            return qc
+
+        # --- Algorithm 4 & 5: Grover's Search (Scaled) ---
+        algos["Grover's Search: Target |1011⟩ (4Q)"] = build_grover("1011")
+        algos["Grover's Search: Target |10101⟩ (5Q)"] = build_grover("10101")
+
+        # --- Algorithm 6: 3-Qubit Bit-Flip Error Correction ---
         qc_3q_err = QuantumCircuit(3)
-        # 1. Encode logical |1>
         qc_3q_err.x(0)
         qc_3q_err.cx(0, 1)
         qc_3q_err.cx(0, 2)
-        # 2. Simulate environment error (Bit flip on q0)
         qc_3q_err.x(0)
-        # 3. Syndrome measurement and correction via Toffoli
         qc_3q_err.cx(0, 1)
         qc_3q_err.cx(0, 2)
         qc_3q_err.ccx(1, 2, 0)
         algos["Error Correction: 3-Qubit Bit-Flip"] = qc_3q_err
 
-        # --- Algorithm 6: 7-Qubit Steane Code (Logical |0>) ---
+        # --- Algorithm 7: 7-Qubit Steane Code (Logical |0>) ---
         qc_steane = QuantumCircuit(7)
-        # Data qubits in superposition
         qc_steane.h([0, 1, 2])
-        # Hamming code parity check entanglement
-        qc_steane.cx(0, 3)
-        qc_steane.cx(1, 3)
+        qc_steane.cx(0, 3);
+        qc_steane.cx(1, 3);
         qc_steane.cx(0, 4)
-        qc_steane.cx(2, 4)
-        qc_steane.cx(1, 5)
+        qc_steane.cx(2, 4);
+        qc_steane.cx(1, 5);
         qc_steane.cx(2, 5)
-        qc_steane.cx(0, 6)
-        qc_steane.cx(1, 6)
+        qc_steane.cx(0, 6);
+        qc_steane.cx(1, 6);
         qc_steane.cx(2, 6)
         algos["Error Correction: Steane [[7,1,3]] Code"] = qc_steane
 
-        # --- Algorithm 7: Shor's Period Finding (a=2, N=3) ---
+        # --- Algorithm 8: Shor's Period Finding (a=2, N=3) ---
         qc_shor = QuantumCircuit(4)
-        # Initialize counting register
         qc_shor.h([0, 1])
-        # Initialize work register to |1> (binary 01)
         qc_shor.x(3)
-        # Modular Exponentiation: 2^x mod 3
-        # If counting bit 0 is 1, multiply by 2 mod 3 (swaps 01 and 10)
         qc_shor.cswap(0, 2, 3)
-        # (If counting bit 1 is 1, multiply by 4 mod 3. Since 4 = 1 mod 3, this is an Identity operation)
-        # Inverse QFT on the counting register
         qc_shor.swap(0, 1)
         qc_shor.h(1)
-        qc_shor.cp(-np.pi / 2, 0, 1)
+        qc_shor.cp(-1*np.pi / 2, 0, 1)
         qc_shor.h(0)
         algos["Shor's Algorithm: Period Finding"] = qc_shor
 
-        # --- Algorithm 8: Full Shor's Algorithm (8Q, N=15, a=7) ---
+        # ==========================================
+        # SHOR'S PERIOD FINDING (6Q, a=5, N=6)
+        # ==========================================
+        qc_shor_6q = QuantumCircuit(6)
+        n_count = 3
+
+        # Step 1: Initialize Superposition & Eigenstate
+        prep = QuantumCircuit(6, name="Initialize")
+        for q in range(n_count):
+            prep.h(q)
+
+        # Initialize auxiliary register to |1> (Least Significant Bit of the aux register)
+        prep.x(n_count)
+        qc_shor_6q.append(prep.to_gate(label="Initialization"), range(6))
+
+        # Step 2: Sequential Modular Exponentiation
+        # For N=6, we need 3 work qubits.
+        # We use a pure permutation matrix for x -> 5x mod 6 to guarantee mathematical perfection.
+        from qiskit.circuit.library import UnitaryGate
+
+        U_matrix = np.eye(8)
+        # Map 1 to 5 and 5 to 1
+        U_matrix[1, 1] = 0;
+        U_matrix[1, 5] = 1
+        U_matrix[5, 5] = 0;
+        U_matrix[5, 1] = 1
+        # Map 2 to 4 and 4 to 2
+        U_matrix[2, 2] = 0;
+        U_matrix[2, 4] = 1
+        U_matrix[4, 4] = 0;
+        U_matrix[4, 2] = 1
+        # States 0, 3, 6, and 7 mathematically remain unchanged
+
+        U_gate = UnitaryGate(U_matrix, label="5^1 mod 6").control(1)
+
+        # The period of 5 mod 6 is 2. Therefore, U^2 and U^4 perfectly collapse to the Identity matrix.
+        U_identity = UnitaryGate(np.eye(8), label="5^2 mod 6 (Identity)").control(1)
+        U_identity2 = UnitaryGate(np.eye(8), label="5^4 mod 6 (Identity)").control(1)
+
+        # Append each modular exponentiation step directly to the timeline
+        qc_shor_6q.append(U_gate, [0, 3, 4, 5])
+        qc_shor_6q.append(U_identity, [1, 3, 4, 5])
+        qc_shor_6q.append(U_identity2, [2, 3, 4, 5])
+
+        # Step 3: Inverse Quantum Fourier Transform
+        def qft_dagger(n):
+            """n-qubit QFTdagger on the first n qubits"""
+            qc = QuantumCircuit(n, name="QFT†")
+            for qubit in range(n // 2):
+                qc.swap(qubit, n - qubit - 1)
+            for j in range(n):
+                for m in range(j):
+                    qc.cp(-np.pi / float(2 ** (j - m)), m, j)
+                qc.h(j)
+            return qc.to_gate(label="Inverse QFT")
+
+        qc_shor_6q.append(qft_dagger(n_count), range(n_count))
+
+        algos["Shor's Algorithm: Period Finding (a=5, N=6)"] = qc_shor_6q
+
+        # ==========================================
+        # SHOR'S ALGORITHM (8Q) - SEQUENTIAL EXECUTION
+        # ==========================================
         qc_shor_8q = QuantumCircuit(8)
+        n_count = 4
+        a = 7
 
-        # 1. Initialize counting register (Qubits 0-3) in full superposition
-        qc_shor_8q.h([0, 1, 2, 3])
+        # Step 1: Initialize Superposition & Eigenstate
+        prep = QuantumCircuit(8, name="Initialize")
+        for q in range(n_count):
+            prep.h(q)
 
-        # 2. Initialize work register (Qubits 4-7) to the eigenstate |1> (binary 0001)
-        qc_shor_8q.x(4)
+        # Initialize auxiliary register to |1> (Least Significant Bit of the aux register)
+        prep.x(n_count)
+        qc_shor_8q.append(prep.to_gate(label="Initialization"), range(8))
 
-        # 3. Define the mathematical Oracle for modular exponentiation
-        def c_amod15(a, power):
-            """Generates a controlled unitary for a^power mod 15"""
+        # Step 2: Sequential Modular Exponentiation
+        def c_amod15(base, power):
+            """Controlled multiplication by a mod 15"""
+            if base not in [2, 4, 7, 8, 11, 13]:
+                raise ValueError("'base' must be 2,4,7,8,11 or 13")
             U = QuantumCircuit(4)
             for _ in range(power):
-                if a in [7, 8]:
+                if base in [2, 13]:
+                    U.swap(0, 1)
+                    U.swap(1, 2)
+                    U.swap(2, 3)
+                if base in [7, 8]:
                     U.swap(2, 3)
                     U.swap(1, 2)
                     U.swap(0, 1)
-                if a in [7, 11, 13]:
+                if base in [4, 11]:
+                    U.swap(1, 3)
+                    U.swap(0, 2)
+                if base in [7, 11, 13]:
                     for q in range(4):
                         U.x(q)
-            U = U.to_gate()
-            U.name = f"{a}^{power} mod 15"
-            return U.control(1)
 
-        # 4. Apply controlled modular exponentiations across the counting register
-        qc_shor_8q.append(c_amod15(7, 1), [0, 4, 5, 6, 7])
-        qc_shor_8q.append(c_amod15(7, 2), [1, 4, 5, 6, 7])
-        qc_shor_8q.append(c_amod15(7, 4), [2, 4, 5, 6, 7])
-        qc_shor_8q.append(c_amod15(7, 8), [3, 4, 5, 6, 7])
+            U_gate = U.to_gate()
+            U_gate.name = f"{base}^{power} mod 15"
+            return U_gate.control(1)
 
-        # 5. Apply the Inverse Quantum Fourier Transform to extract the phase
-        qc_shor_8q.append(QFTGate(4).inverse(), [0, 1, 2, 3])
+        # Append each modular exponentiation step directly to the timeline
+        for q in range(n_count):
+            qc_shor_8q.append(
+                c_amod15(a, 2 ** q),
+                [q] + [i + n_count for i in range(4)]
+            )
+
+        # Step 3: Inverse Quantum Fourier Transform
+        def qft_dagger(n):
+            """n-qubit QFTdagger on the first n qubits"""
+            qc = QuantumCircuit(n, name="QFT†")
+            for qubit in range(n // 2):
+                qc.swap(qubit, n - qubit - 1)
+            for j in range(n):
+                for m in range(j):
+                    qc.cp(-np.pi / float(2 ** (j - m)), m, j)
+                qc.h(j)
+            return qc.to_gate(label="Inverse QFT")
+
+        qc_shor_8q.append(qft_dagger(n_count), range(n_count))
 
         algos["Shor's Algorithm: Factor 15 (8Q)"] = qc_shor_8q
 
