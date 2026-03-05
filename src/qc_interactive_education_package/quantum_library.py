@@ -68,7 +68,7 @@ class QuantumCurriculum:
         qc_bell = QuantumCircuit(2)
         qc_bell.h(0)
         qc_bell.cx(0, 1)
-        challenges["Level 3: Construct the Bell State"] = {
+        challenges["Level 3: Construct a Bell State"] = {
             "num_qubits": 2,
             "initial_state": [1.0, 0.0, 0.0, 0.0],
             "target_state": Statevector.from_instruction(qc_bell).data.tolist()

@@ -14,13 +14,13 @@ from PIL import Image
 from collections import OrderedDict
 
 from .visualization import DimensionalCircleNotation, CircleNotation
-from .dim_Bloch_spheres import DimensionalBlochSpheres
+from .dim_Bloch_spheres import SphereNotation
 
 # --- Global Visualization Registry ---
 VISUALIZATION_REGISTRY = {
     'Dimensional Circle Notation': DimensionalCircleNotation,
     'Circle Notation': CircleNotation,
-    'Dimensional Bloch Spheres': DimensionalBlochSpheres
+    'Sphere Notation': SphereNotation
 }
 
 def register_visualization(name: str, vis_class: type):
@@ -104,14 +104,25 @@ class InteractiveViewer:
                                                     layout={'width': '100px', 'margin': '0px 10px 0px 10px'})
 
         qubit_options = list(range(1, self.num_qubits + 1))
-        self.target_selector = widgets.SelectMultiple(options=qubit_options, value=(1,), description='Target(s):',
-                                                      rows=min(4, self.num_qubits), layout={'width': '160px'})
-        self.control_selector = widgets.SelectMultiple(options=qubit_options,
-                                                       value=(2,) if self.num_qubits > 1 else tuple(),
-                                                       description='Control(s):', disabled=True,
-                                                       rows=min(4, self.num_qubits), layout={'width': '160px'})
-        self.angle_input = widgets.FloatSlider(value=0.5, min=-2.0, max=2.0, step=0.0625, description='Angle (× π):',
-                                               disabled=True, layout={'width': '250px'}, readout_format='.3f')
+
+        self.target_selector = widgets.SelectMultiple(
+            options=qubit_options, value=(1,), description='Target(s):',
+            rows=self.num_qubits, layout={'width': '160px'}
+        )
+        self.control_selector = widgets.SelectMultiple(
+            options=qubit_options, value=(2,) if self.num_qubits > 1 else tuple(),
+            description='Control(s):', disabled=True,
+            rows=self.num_qubits, layout={'width': '160px'}
+        )
+        # We drop the '(x pi)' from the description and disable the native readout
+        self.angle_input = widgets.FloatSlider(value=0.5, min=-2.0, max=2.0, step=0.0625,
+                                               description='Angle:', disabled=True,
+                                               layout={'width': '190px'}, readout=False)
+
+        # We inject a custom, reactive readout that supports Unicode symbology
+        self.angle_readout = widgets.HTML(
+            value="<div style='font-family: sans-serif; font-size: 14px; color: #95a5a6;'>0.500π</div>",
+            layout={'width': '60px', 'margin': '0px 10px 0px -5px'})
 
         # --- Base Control Buttons ---
         self.apply_btn = widgets.Button(description="⚙️ Apply",
@@ -255,6 +266,7 @@ class InteractiveViewer:
         self.vis_dropdown.observe(self._on_vis_change, names='value')
         self.bloch_qubit_dropdown.observe(self._on_vis_change, names='value')
         self.zoom_slider.observe(self._on_zoom_change, names='value') # Bind zoom event
+        self.angle_input.observe(self._sync_angle_readout, names='value')
 
         self.attach_btn.on_click(self._attach_qubit)
         self.detach_btn.on_click(self._detach_qubit)
@@ -300,7 +312,7 @@ class InteractiveViewer:
         )
 
         self.controls_bottom = widgets.Box(
-            [self.angle_input, self.apply_btn, self.measure_btn, self.zero_phase_btn,
+            [self.angle_input, self.angle_readout, self.apply_btn, self.measure_btn, self.zero_phase_btn,
              self.undo_btn, self.redo_btn, self.attach_btn, self.detach_btn, self.reset_btn],
             layout=widgets.Layout(
                 display='flex',
@@ -352,7 +364,7 @@ class InteractiveViewer:
         return VISUALIZATION_REGISTRY.get(self.vis_dropdown.value, default_class)
 
     def _on_vis_change(self, change):
-        if self.vis_dropdown.value == 'Dimensional Bloch Spheres':
+        if self.vis_dropdown.value == 'Sphere Notation':
             self.bloch_qubit_dropdown.layout.display = 'flex'
         else:
             self.bloch_qubit_dropdown.layout.display = 'none'
@@ -430,17 +442,36 @@ class InteractiveViewer:
             print(f"Loaded a {len(forward_circs)}-step quantum algorithm. Click 'Redo' to step forward.")
 
     def _toggle_angle_slider(self, change):
-        self.angle_input.disabled = (change.new not in ['P', 'Rx', 'Ry', 'Rz'])
+        is_disabled = (change.new not in ['P', 'Rx', 'Ry', 'Rz'])
+        self.angle_input.disabled = is_disabled
+
+        # Instantly update the custom readout color to match the disabled state
+        color = "#95a5a6" if is_disabled else "#2c3e50"
+        self.angle_readout.value = f"<div style='font-family: sans-serif; font-size: 14px; color: {color};'>{self.angle_input.value:.3f}π</div>"
+
+    def _sync_angle_readout(self, change):
+        # Dynamically inject the pi symbol as the slider is dragged
+        color = "#95a5a6" if self.angle_input.disabled else "#2c3e50"
+        self.angle_readout.value = f"<div style='font-family: sans-serif; font-size: 14px; color: {color};'>{change.new:.3f}π</div>"
 
     def _toggle_control_selector(self, change):
         self.control_selector.disabled = not change.new
 
     def _refresh_ui_selectors(self):
         new_options = list(range(1, self.num_qubits + 1))
-        self.target_selector.value = (1,)
-        self.control_selector.value = tuple() if self.num_qubits < 2 else (2,)
+
+        # 1. Update the available options
         self.target_selector.options = new_options
         self.control_selector.options = new_options
+
+        # 2. NEW: Dynamically expand/contract the box height to prevent scrollbars
+        self.target_selector.rows = self.num_qubits
+        self.control_selector.rows = self.num_qubits
+
+        # 3. Reset the selection values
+        self.target_selector.value = (1,)
+        self.control_selector.value = tuple() if self.num_qubits < 2 else (2,)
+
         self.controlled_checkbox.disabled = (self.num_qubits < 2)
 
         bloch_options = list(range(1, min(self.num_qubits, 3) + 1))
@@ -448,7 +479,7 @@ class InteractiveViewer:
             self.bloch_qubit_dropdown.value = 1
         self.bloch_qubit_dropdown.options = bloch_options
 
-        # NEW: Proactively lock the system size controls
+        # Proactively lock the system size controls
         self.attach_btn.disabled = (self.num_qubits >= 9)
         self.detach_btn.disabled = (self.num_qubits <= 1)
 
@@ -688,7 +719,7 @@ class InteractiveViewer:
             self.console.clear_output()
             try:
                 vis_class = self._get_active_vis_class()
-                if self.vis_dropdown.value == 'Dimensional Bloch Spheres':
+                if self.vis_dropdown.value == 'Sphere Notation':
                     vis = vis_class.from_qiskit(self.circuit, select_qubit=self.bloch_qubit_dropdown.value)
                 else:
                     vis = vis_class.from_qiskit(self.circuit)
@@ -712,7 +743,7 @@ class InteractiveViewer:
             self.console.clear_output()
             try:
                 vis_class = self._get_active_vis_class()
-                if self.vis_dropdown.value == 'Dimensional Bloch Spheres':
+                if self.vis_dropdown.value == 'Sphere Notation':
                     vis = vis_class.from_qiskit(self.circuit, select_qubit=self.bloch_qubit_dropdown.value)
                 else:
                     vis = vis_class.from_qiskit(self.circuit)
@@ -842,7 +873,7 @@ class InteractiveViewer:
                 else:
                     # Cache Miss: Generate Matplotlib graphic
                     vis_class = self._get_active_vis_class()
-                    if self.vis_dropdown.value == 'Dimensional Bloch Spheres':
+                    if self.vis_dropdown.value == 'Sphere Notation':
                         vis = vis_class.from_qiskit(self.circuit, select_qubit=self.bloch_qubit_dropdown.value)
                     else:
                         vis = vis_class.from_qiskit(self.circuit)
@@ -944,7 +975,7 @@ class InteractiveViewer:
                 circ_fig.suptitle("Quantum Circuit Pipeline")
 
             vis_class = self._get_active_vis_class()
-            if self.vis_dropdown.value == 'Dimensional Bloch Spheres':
+            if self.vis_dropdown.value == 'Sphere Notation':
                 vis = vis_class.from_qiskit(self.circuit, select_qubit=self.bloch_qubit_dropdown.value)
             else:
                 vis = vis_class.from_qiskit(self.circuit)
@@ -1086,7 +1117,7 @@ class ChallengeViewer(InteractiveViewer):
             # Route target generation through the polymorphic parser
             vis_class = self._get_active_vis_class()
 
-            if self.vis_dropdown.value == 'Dimensional Bloch Spheres':
+            if self.vis_dropdown.value == 'Sphere Notation':
                 vis = vis_class.from_qiskit(qc_target, select_qubit=self.bloch_qubit_dropdown.value)
             else:
                 vis = vis_class.from_qiskit(qc_target)

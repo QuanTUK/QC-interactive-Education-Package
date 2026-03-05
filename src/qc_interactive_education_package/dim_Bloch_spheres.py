@@ -50,7 +50,7 @@ class BlochSphere:
 
         ax.plot_surface(
             x_outer + dx, y_outer + dy, z_outer + dz,
-            color='gray', alpha=0.01, edgecolor='none'
+            color='gray', alpha=0.05, edgecolor='none'
         )
 
         if self.bloch_radius > 1e-3:
@@ -69,6 +69,18 @@ class BlochSphere:
                 [0, 0, self.outer_radius]
             ])
 
+
+
+            # Draw X, Y, Z axes (rotated)
+            rot_axes = np.array([[ay, -ax, az] for ax, ay, az in axes])
+
+            for vec in rot_axes:
+                ax.quiver(
+                    dx, dy, dz,
+                    vec[0], vec[1], vec[2],
+                    color='black', arrow_length_ratio=0.1, alpha=0.5
+                )
+
             # Draw the Bloch vector
             ax.quiver(
                 dx, dy, dz,
@@ -79,22 +91,6 @@ class BlochSphere:
                 dx + 1.05 * x_vec, dy + 1.05 * y_vec, dz + 1.05 * z_vec,
                 'v', color='#e31b4c', fontsize=12
             )
-
-            # Draw X, Y, Z axes (rotated)
-            rot_axes = np.array([[ay, -ax, az] for ax, ay, az in axes])
-
-            for vec, label in zip(rot_axes, ('X', 'Y', 'Z')):
-                ax.quiver(
-                    dx, dy, dz,
-                    vec[0], vec[1], vec[2],
-                    color='black', arrow_length_ratio=0.1, alpha=0.5
-                )
-                ax.text(
-                    dx + vec[0] * 1.1,
-                    dy + vec[1] * 1.1,
-                    dz + vec[2] * 1.1,
-                    label, color='black', fontsize=12
-                )
 
             # --- Inner sphere (high zorder, transparent) ---
             x_inner = self.bloch_radius * np.outer(np.cos(u), np.sin(v))
@@ -149,7 +145,7 @@ def normalize_vector(v):
 
     return (v / norm, norm)
 
-class DimensionalBlochSpheres(Visualization):
+class SphereNotation(Visualization):
     """A Visualization subclass for the Dimensional Circle
     Notation (DCN) representation.
     """
@@ -827,7 +823,7 @@ if __name__ == '__main__':
     sim_3 = Simulator(3)
     sim_3.writeComplex(vector_3)
 
-    Bloch_vis = DimensionalBlochSpheres(sim_3, select_qubit=sel_qubit)
+    Bloch_vis = SphereNotation(sim_3, select_qubit=sel_qubit)
     Bloch_vis.draw()
 
     plt.show()
