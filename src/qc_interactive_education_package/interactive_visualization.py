@@ -40,7 +40,8 @@ class InteractiveViewer:
     """
 
     def __init__(self, num_qubits=3, initial_state=None, preloaded_circuit=None, show_circuit=True):
-        self.num_qubits = num_qubits
+        # Enforce strict maximum of 9 qubits to prevent exponential rendering latency
+        self.num_qubits = min(num_qubits, 9)
         self.show_circuit = show_circuit
         self.render_figsize = (8.0, 6.0)
 
@@ -82,11 +83,9 @@ class InteractiveViewer:
             layout={'display': 'none', 'width': '160px'}
         )
 
-        # NEW: Dynamic Zoom Slider
+        # Dynamic Zoom Slider
         # Establish default zoom based on initial qubit count
-        if self.num_qubits < 4:
-            initial_zoom = 30
-        elif self.num_qubits < 6:
+        if self.num_qubits < 6:
             initial_zoom = 60
         else:
             initial_zoom = 100
@@ -115,56 +114,98 @@ class InteractiveViewer:
                                                disabled=True, layout={'width': '250px'}, readout_format='.3f')
 
         # --- Base Control Buttons ---
-        self.apply_btn = widgets.Button(description="Apply",
-                                        layout=widgets.Layout(width='85px', height='32px', border='1px solid #2b5797', border_radius='4px'))
-        self.apply_btn.style.button_color = '#2d89ef'; self.apply_btn.style.text_color = 'white'; self.apply_btn.style.font_weight = 'bold'
+        self.apply_btn = widgets.Button(description="⚙️ Apply",
+                                        layout=widgets.Layout(width='85px', height='32px', border='1px solid #2b5797',
+                                                              border_radius='4px'))
+        self.apply_btn.style.button_color = '#2d89ef';
+        self.apply_btn.style.text_color = 'white';
+        self.apply_btn.style.font_weight = 'bold'
 
-        self.measure_btn = widgets.Button(description="Measure",
-                                          layout=widgets.Layout(width='95px', height='32px', border='1px solid #8e44ad', border_radius='4px'))
-        self.measure_btn.style.button_color = '#9b59b6'; self.measure_btn.style.text_color = 'white'; self.measure_btn.style.font_weight = 'bold'
+        self.measure_btn = widgets.Button(description="💥 Measure",
+                                          layout=widgets.Layout(width='105px', height='32px',
+                                                                border='1px solid #8e44ad', border_radius='4px'))
+        self.measure_btn.style.button_color = '#9b59b6';
+        self.measure_btn.style.text_color = 'white';
+        self.measure_btn.style.font_weight = 'bold'
 
-        self.zero_phase_btn = widgets.Button(description="0-Phase", layout=widgets.Layout(width='90px', height='32px', border='1px solid #d37c15', border_radius='4px'))
-        self.zero_phase_btn.style.button_color = '#f39c12'; self.zero_phase_btn.style.text_color = 'white'; self.zero_phase_btn.style.font_weight = 'bold'
+        self.zero_phase_btn = widgets.Button(description="⊘ 0-Phase",
+                                             layout=widgets.Layout(width='95px', height='32px',
+                                                                   border='1px solid #d37c15', border_radius='4px'))
+        self.zero_phase_btn.style.button_color = '#f39c12';
+        self.zero_phase_btn.style.text_color = 'white';
+        self.zero_phase_btn.style.font_weight = 'bold'
 
-        self.undo_btn = widgets.Button(description="Undo",
-                                       layout=widgets.Layout(width='80px', height='32px', border='1px solid #7f8c8d', border_radius='4px'))
-        self.undo_btn.style.button_color = '#95a5a6'; self.undo_btn.style.text_color = 'white'; self.undo_btn.style.font_weight = 'bold'
+        self.undo_btn = widgets.Button(description="↩ Undo",
+                                       layout=widgets.Layout(width='80px', height='32px', border='1px solid #7f8c8d',
+                                                             border_radius='4px'))
+        self.undo_btn.style.button_color = '#95a5a6';
+        self.undo_btn.style.text_color = 'white';
+        self.undo_btn.style.font_weight = 'bold'
 
-        self.redo_btn = widgets.Button(description="Redo",
-                                       layout=widgets.Layout(width='80px', height='32px', border='1px solid #7f8c8d', border_radius='4px'))
-        self.redo_btn.style.button_color = '#95a5a6'; self.redo_btn.style.text_color = 'white'; self.redo_btn.style.font_weight = 'bold'
+        self.redo_btn = widgets.Button(description="↪ Redo",
+                                       layout=widgets.Layout(width='80px', height='32px', border='1px solid #7f8c8d',
+                                                             border_radius='4px'))
+        self.redo_btn.style.button_color = '#95a5a6';
+        self.redo_btn.style.text_color = 'white';
+        self.redo_btn.style.font_weight = 'bold'
 
-        self.reset_btn = widgets.Button(description="Reset",
-                                        layout=widgets.Layout(width='80px', height='32px', border='1px solid #b91d47', border_radius='4px'))
-        self.reset_btn.style.button_color = '#ee1111'; self.reset_btn.style.text_color = 'white'; self.reset_btn.style.font_weight = 'bold'
+        self.reset_btn = widgets.Button(description="🔄 Reset",
+                                        layout=widgets.Layout(width='90px', height='32px', border='1px solid #b91d47',
+                                                              border_radius='4px'))
+        self.reset_btn.style.button_color = '#ee1111';
+        self.reset_btn.style.text_color = 'white';
+        self.reset_btn.style.font_weight = 'bold'
 
         # --- System Size Controls ---
-        self.attach_btn = widgets.Button(description="Attach |0⟩",
-                                         layout=widgets.Layout(width='90px', height='32px', border='1px solid #27ae60', border_radius='4px'))
-        self.attach_btn.style.button_color = '#2ecc71'; self.attach_btn.style.text_color = 'white'; self.attach_btn.style.font_weight = 'bold'
+        self.attach_btn = widgets.Button(description="➕ Attach",
+                                         layout=widgets.Layout(width='95px', height='32px', border='1px solid #27ae60',
+                                                               border_radius='4px'))
+        self.attach_btn.style.button_color = '#2ecc71';
+        self.attach_btn.style.text_color = 'white';
+        self.attach_btn.style.font_weight = 'bold'
 
-        self.detach_btn = widgets.Button(description="Detach",
-                                         layout=widgets.Layout(width='85px', height='32px', border='1px solid #c0392b', border_radius='4px'))
-        self.detach_btn.style.button_color = '#e74c3c'; self.detach_btn.style.text_color = 'white'; self.detach_btn.style.font_weight = 'bold'
+        self.detach_btn = widgets.Button(description="➖ Detach",
+                                         layout=widgets.Layout(width='95px', height='32px', border='1px solid #c0392b',
+                                                               border_radius='4px'))
+        self.detach_btn.style.button_color = '#e74c3c';
+        self.detach_btn.style.text_color = 'white';
+        self.detach_btn.style.font_weight = 'bold'
 
-        # --- Base State Inspector ---
+        # --- Base State Inspector & Extraction ---
         self.state_inspector = widgets.HTML(layout={'width': '100%', 'margin': '10px 0px 5px 0px'})
 
-        btn_layout = widgets.Layout(width='115px', height='32px', border_radius='4px')
-        self.show_array_btn = widgets.Button(description="Raw Array", layout=btn_layout)
-        self.show_array_btn.style.button_color = '#34495e'; self.show_array_btn.style.text_color = 'white'; self.show_array_btn.style.font_weight = 'bold'; self.show_array_btn.layout.border = '1px solid #2c3e50'
+        # Expanded width to 130px to safely accommodate the injected Unicode glyphs
+        btn_layout = widgets.Layout(width='120px', height='32px', border_radius='4px')
 
-        self.export_png_btn = widgets.Button(description="State PNG", layout=btn_layout)
-        self.export_png_btn.style.button_color = '#1abc9c'; self.export_png_btn.style.text_color = 'white'; self.export_png_btn.style.font_weight = 'bold'; self.export_png_btn.layout.border = '1px solid #16a085'
+        self.show_array_btn = widgets.Button(description="📋 Raw Array", layout=btn_layout)
+        self.show_array_btn.style.button_color = '#34495e';
+        self.show_array_btn.style.text_color = 'white';
+        self.show_array_btn.style.font_weight = 'bold';
+        self.show_array_btn.layout.border = '1px solid #2c3e50'
 
-        self.export_svg_btn = widgets.Button(description="State SVG", layout=btn_layout)
-        self.export_svg_btn.style.button_color = '#2ecc71'; self.export_svg_btn.style.text_color = 'white'; self.export_svg_btn.style.font_weight = 'bold'; self.export_svg_btn.layout.border = '1px solid #27ae60'
+        self.export_png_btn = widgets.Button(description="🖼️ State PNG", layout=btn_layout)
+        self.export_png_btn.style.button_color = '#1abc9c';
+        self.export_png_btn.style.text_color = 'white';
+        self.export_png_btn.style.font_weight = 'bold';
+        self.export_png_btn.layout.border = '1px solid #16a085'
 
-        self.export_circ_png_btn = widgets.Button(description="Circ PNG", layout=btn_layout)
-        self.export_circ_png_btn.style.button_color = '#3498db'; self.export_circ_png_btn.style.text_color = 'white'; self.export_circ_png_btn.style.font_weight = 'bold'; self.export_circ_png_btn.layout.border = '1px solid #2980b9'
+        self.export_svg_btn = widgets.Button(description="📐 State SVG", layout=btn_layout)
+        self.export_svg_btn.style.button_color = '#2ecc71';
+        self.export_svg_btn.style.text_color = 'white';
+        self.export_svg_btn.style.font_weight = 'bold';
+        self.export_svg_btn.layout.border = '1px solid #27ae60'
 
-        self.export_circ_svg_btn = widgets.Button(description="Circ SVG", layout=btn_layout)
-        self.export_circ_svg_btn.style.button_color = '#2980b9'; self.export_circ_svg_btn.style.text_color = 'white'; self.export_circ_svg_btn.style.font_weight = 'bold'; self.export_circ_svg_btn.layout.border = '1px solid #1c5980'
+        self.export_circ_png_btn = widgets.Button(description="🔌 Circ PNG", layout=btn_layout)
+        self.export_circ_png_btn.style.button_color = '#3498db';
+        self.export_circ_png_btn.style.text_color = 'white';
+        self.export_circ_png_btn.style.font_weight = 'bold';
+        self.export_circ_png_btn.layout.border = '1px solid #2980b9'
+
+        self.export_circ_svg_btn = widgets.Button(description="📐 Circ SVG", layout=btn_layout)
+        self.export_circ_svg_btn.style.button_color = '#2980b9';
+        self.export_circ_svg_btn.style.text_color = 'white';
+        self.export_circ_svg_btn.style.font_weight = 'bold';
+        self.export_circ_svg_btn.layout.border = '1px solid #1c5980'
 
         # --- Automatic Environment Detection ---
         is_voila = 'voila' in os.environ.get('SERVER_SOFTWARE', '').lower()
@@ -195,17 +236,16 @@ class InteractiveViewer:
             layout=widgets.Layout(
                 width=f"{initial_zoom}%",
                 object_fit='contain',
-                margin='10px 0px'
+                margin='0px'  # Removed vertical margin
             )
         )
 
-        # Ensure the circuit image also scales responsively if needed
         self.circuit_image_widget = widgets.Image(
             format='png',
             layout=widgets.Layout(
                 max_width='100%',
                 object_fit='contain',
-                margin='10px 0px',
+                margin='0px',  # Removed vertical margin
                 display='block' if self.show_circuit else 'none'
             )
         )
@@ -277,11 +317,11 @@ class InteractiveViewer:
             [self.circuit_image_widget, self.image_widget],
             layout=widgets.Layout(
                 display='flex',
-                flex_flow='row wrap',
+                flex_flow='column',  # Enforce strict vertical stacking
                 align_items='center',
                 justify_content='center',
                 width='100%',
-                grid_gap='30px'
+                grid_gap='0px'  # Obliterated gap space
             )
         )
 
@@ -402,14 +442,24 @@ class InteractiveViewer:
         self.target_selector.options = new_options
         self.control_selector.options = new_options
         self.controlled_checkbox.disabled = (self.num_qubits < 2)
+
         bloch_options = list(range(1, min(self.num_qubits, 3) + 1))
         if self.bloch_qubit_dropdown.value not in bloch_options:
             self.bloch_qubit_dropdown.value = 1
         self.bloch_qubit_dropdown.options = bloch_options
 
+        # NEW: Proactively lock the system size controls
+        self.attach_btn.disabled = (self.num_qubits >= 9)
+        self.detach_btn.disabled = (self.num_qubits <= 1)
+
     def _attach_qubit(self, b):
         with self.console:
             self.console.clear_output()
+
+            if self.num_qubits >= 9:
+                print("Hardware Limit Reached: Cannot exceed 9 qubits (512-dimensional Hilbert space).")
+                return
+
             try:
                 sv_current = Statevector.from_instruction(self.circuit).data
                 sv_new = np.kron(np.array([1.0, 0.0], dtype=complex), sv_current)
@@ -823,7 +873,7 @@ class InteractiveViewer:
                     else:
                         # Cache Miss: Generate PIL Circuit
                         drawable_curr = self._get_drawable_circuit(self.circuit)
-                        fig_curr = drawable_curr.draw(output='mpl', scale=0.25, style={'backgroundcolor': 'none'})
+                        fig_curr = drawable_curr.draw(output='mpl', scale=0.4, style={'backgroundcolor': 'none'})
                         buf_curr = BytesIO()
                         fig_curr.savefig(buf_curr, format='png', bbox_inches='tight', dpi=300)
                         plt.close(fig_curr)
@@ -833,7 +883,7 @@ class InteractiveViewer:
                         else:
                             future_circ = self._redo_circuit_history[0]
                             drawable_fut = self._get_drawable_circuit(future_circ)
-                            fig_fut = drawable_fut.draw(output='mpl', scale=0.25, style={'backgroundcolor': 'none'})
+                            fig_fut = drawable_fut.draw(output='mpl', scale=0.4, style={'backgroundcolor': 'none'})
                             buf_fut = BytesIO()
                             fig_fut.savefig(buf_fut, format='png', bbox_inches='tight', dpi=300)
                             plt.close(fig_fut)
@@ -890,7 +940,7 @@ class InteractiveViewer:
         try:
             if self.show_circuit:
                 drawable_circ = self._get_drawable_circuit(self.circuit)
-                circ_fig = drawable_circ.draw(output='mpl', scale=0.25)
+                circ_fig = drawable_circ.draw(output='mpl', scale=0.4)
                 circ_fig.suptitle("Quantum Circuit Pipeline")
 
             vis_class = self._get_active_vis_class()
@@ -967,25 +1017,34 @@ class ChallengeViewer(InteractiveViewer):
         self._render_target()
         self._update_plot()
 
-        comparison_box = widgets.HBox([
+        # Force the comparison box to scale with the zoom slider
+        self.comparison_box = widgets.HBox([
+            # LEFT SIDE: Current State (Strict 50% mathematical partition)
             widgets.VBox(
-                [widgets.HTML("<h3 style='text-align: center; color: #555; margin-bottom: 0px;'>Current State</h3>"),
-                 self.image_widget], layout={'align_items': 'center', 'width': '50%'}),
-            widgets.VBox(
-                [widgets.HTML("<h3 style='text-align: center; color: #555; margin-bottom: 0px;'>Target State</h3>"),
-                 self.target_image_widget], layout={'align_items': 'center', 'width': '50%'})
-        ], layout={'width': '100%', 'justify_content': 'space-around', 'align_items': 'flex-start'})
+                [widgets.HTML(
+                    "<h3 style='text-align: center; width: 100%; color: #555; margin-bottom: 0px;'>Current State</h3>"),
+                 self.image_widget],
+                layout={'align_items': 'center', 'width': '50%', 'margin': '0px 5px', 'padding': '0px'}),
 
-        # NEW: Responsive Flexbox Container for Challenge Visualizations
+            # RIGHT SIDE: Target State (Strict 50% mathematical partition)
+            widgets.VBox(
+                [widgets.HTML(
+                    "<h3 style='text-align: center; width: 100%; color: #555; margin-bottom: 0px;'>Target State</h3>"),
+                 self.target_image_widget],
+                layout={'align_items': 'center', 'width': '50%', 'margin': '0px 5px', 'padding': '0px'})
+
+        ], layout={'width': f"{self.zoom_slider.value}%", 'justify_content': 'center', 'margin': '0px'})
+
+        # Responsive Flexbox Container for Challenge Visualizations
         self.visualization_row = widgets.Box(
-            [self.circuit_image_widget, comparison_box],
+            [self.circuit_image_widget, self.comparison_box],
             layout=widgets.Layout(
                 display='flex',
-                flex_flow='row wrap',
+                flex_flow='column',  # Strict vertical stacking
                 align_items='center',
                 justify_content='center',
                 width='100%',
-                grid_gap='30px'
+                grid_gap='0px'  # Obliterated gap space
             )
         )
 
@@ -1006,6 +1065,19 @@ class ChallengeViewer(InteractiveViewer):
         """Overrides the parent method to ensure the target state visual updates as well."""
         self._render_target()
         super()._on_vis_change(change)
+
+    def _on_zoom_change(self, change):
+        """Overrides the parent method to dynamically scale the outer container instead of the inner images."""
+        if hasattr(self, 'comparison_box'):
+            # 1. Scale the outer parent container to the slider's percentage
+            self.comparison_box.layout.width = f"{change.new}%"
+
+            # 2. lock the inner images to fill their 50% partitions
+            self.image_widget.layout.width = '100%'
+            self.target_image_widget.layout.width = '100%'
+        else:
+            # Fallback for events triggered during the super().__init__ boot sequence
+            super()._on_zoom_change(change)
 
     def _render_target(self):
         qc_target = QuantumCircuit(self.num_qubits)
@@ -1032,6 +1104,9 @@ class ChallengeViewer(InteractiveViewer):
             self._check_success()
 
     def _check_success(self):
+        # Architectural guard against the super().__init__ race condition
+        if not hasattr(self, 'target_state'):
+            return
         try:
             # 1. extract the target system size from the statevector length
             target_dim = len(self.target_state)
