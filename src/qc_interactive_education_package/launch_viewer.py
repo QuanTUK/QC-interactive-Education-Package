@@ -42,7 +42,7 @@ def _sanitize_state(state):
 
 
 def launch_app(mode="sandbox", num_qubits=None, initial_state=None, target_state=None, show_circuit=True,
-               preloaded_circuit=None, available_gates=None, max_gate_count=None):
+               preloaded_circuit=None, available_gates=None, max_gate_count=None, show_final_state=True, show_annotations=True):
     """
     Launches the master Single Page Application (SPA) in a new browser tab via Voilà.
     Validates execution modes and serializes arguments to cross the subprocess boundary.
@@ -80,10 +80,10 @@ def launch_app(mode="sandbox", num_qubits=None, initial_state=None, target_state
     if safe_target is not None:
         custom_env["VIEWER_TARGET"] = json.dumps(safe_target)
 
+    # Pass the UI rendering flags
     custom_env["VIEWER_SHOW_CIRCUIT"] = "1" if show_circuit else "0"
-
-    # Serialize the Qiskit circuit to a QASM string if provided
-    custom_env["VIEWER_SHOW_CIRCUIT"] = "1" if show_circuit else "0"
+    custom_env["VIEWER_SHOW_FINAL_STATE"] = "1" if show_final_state else "0"
+    custom_env["VIEWER_SHOW_ANNOTATIONS"] = "1" if show_annotations else "0"
 
     # Serialize the available gates array safely to JSON
     if available_gates is not None:
@@ -91,8 +91,6 @@ def launch_app(mode="sandbox", num_qubits=None, initial_state=None, target_state
 
     if max_gate_count is not None:
         custom_env["VIEWER_MAX_GATES"] = str(max_gate_count)
-
-    custom_env["VIEWER_SHOW_CIRCUIT"] = "1" if show_circuit else "0"
 
     # ==========================================
     # QPY BINARY SERIALIZATION
@@ -133,7 +131,7 @@ class QuantumViewer:
     """
 
     def __init__(self, mode="sandbox", num_qubits=None, initial_state=None, target_state=None, show_circuit=True,
-                 preloaded_circuit=None, available_gates=None, max_gate_count=None):
+                 preloaded_circuit=None, available_gates=None, max_gate_count=None, show_final_state=True, show_annotations=True):
         # Dedicated output container for the interactive canvases
         self.viewer_output = widgets.Output(layout={'width': '100%', 'margin': '20px 0px 0px 0px'})
 
@@ -187,27 +185,38 @@ class QuantumViewer:
 
             with self.viewer_output:
                 if mode == "algorithm":
-                    viewer = ChallengeViewer(
-                        num_qubits=_nq, preloaded_circuit=preloaded_circuit, show_circuit=show_circuit,
-                        is_assessment=False, available_gates=available_gates, max_gate_count=max_gate_count
-                    )
+                    if show_final_state:
+                        viewer = ChallengeViewer(
+                            num_qubits=_nq, preloaded_circuit=preloaded_circuit, show_circuit=show_circuit,
+                            show_annotations=show_annotations, is_assessment=False, available_gates=available_gates,
+                            max_gate_count=max_gate_count
+                        )
+                    else:
+                        viewer = InteractiveViewer(
+                            num_qubits=_nq, preloaded_circuit=preloaded_circuit, show_circuit=show_circuit,
+                            show_annotations=show_annotations, available_gates=available_gates,
+                            max_gate_count=max_gate_count
+                        )
                 elif mode == "challenge":
                     viewer = ChallengeViewer(
                         num_qubits=_nq, initial_state=initial_state, target_state=target_state,
-                        preloaded_circuit=preloaded_circuit, show_circuit=show_circuit, is_assessment=True,
-                        available_gates=available_gates, max_gate_count=max_gate_count
+                        preloaded_circuit=preloaded_circuit, show_circuit=show_circuit, show_annotations=show_annotations,
+                        is_assessment=True, available_gates=available_gates, max_gate_count=max_gate_count
                     )
                 else:
                     viewer = InteractiveViewer(
                         num_qubits=_nq, initial_state=initial_state, preloaded_circuit=preloaded_circuit,
-                        show_circuit=show_circuit, available_gates=available_gates, max_gate_count=max_gate_count
+                        show_circuit=show_circuit, show_annotations=show_annotations, available_gates=available_gates,
+                        max_gate_count=max_gate_count
                     )
 
-                # Fast-forward the timeline to render the final state instantly if a circuit was provided
-                while viewer._redo_circuit_history:
-                    viewer._circuit_history.append(viewer.circuit.copy())
-                    viewer._action_history.append(viewer._redo_action_history.pop())
-                    viewer.circuit = viewer._redo_circuit_history.pop()
+                # Fast-forward the timeline to render the final state instantly if a circuit was provided.
+                # Only execute this in sandbox mode so algorithms/challenges start from the beginning.
+                if mode == "sandbox":
+                    while viewer._redo_circuit_history:
+                        viewer._circuit_history.append(viewer.circuit.copy())
+                        viewer._action_history.append(viewer._redo_action_history.pop())
+                        viewer.circuit = viewer._redo_circuit_history.pop()
 
                 viewer.display()
 
@@ -380,7 +389,7 @@ class QuantumViewer:
                 show_annotations=self.chal_annotations.value,
                 is_assessment=True,
                 available_gates=chal_data.get("available_gates", None),
-                max_gate_count=chal_data.get("max_gate_count", None) # <--- EXTRACTED
+                max_gate_count=chal_data.get("max_gate_count", None)
             )
             viewer.display()
 

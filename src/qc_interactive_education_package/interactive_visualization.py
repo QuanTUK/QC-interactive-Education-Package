@@ -59,7 +59,9 @@ class InteractiveViewer:
         # Extract pedagogical annotations if provided in the circuit metadata
         self._annotations = {}
         if preloaded_circuit is not None and preloaded_circuit.metadata:
-            self._annotations = preloaded_circuit.metadata.get('annotations', {})
+            raw_annotations = preloaded_circuit.metadata.get('annotations', {})
+            # Force all keys back to integers to repair serialization type-coercion
+            self._annotations = {int(k): str(v) for k, v in raw_annotations.items()}
 
         # The dedicated DOM container for the Explanation/Hint block
         # Changed from HTML to HTMLMath to natively trigger MathJax typesetting for equations
