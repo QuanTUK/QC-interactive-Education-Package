@@ -76,13 +76,14 @@ vis.show()
 
 To run the pre-configured Single Page Application modes via IPC (Inter-Process Communication) and Voilà:
 ```Python
-from qc_interactive_education_package import launch_app, launch_challenge
+from qc_interactive_education_package import launch_app
 
 # Launch the master Single Page Application
 launch_app()
 
 # Or launch a specific algorithmic challenge directly into the browser
-launch_challenge(
+launch_app(
+    mode='challenge',
     num_qubits=2,
     initial_state=[1.0, 0.0, 0.0, 0.0],       
     target_state=[0.707, 0.0, 0.0, 0.707],    # Target Bell State
