@@ -39,10 +39,11 @@ class InteractiveViewer:
     a live Dirac notation readout, and an optional ghosted circuit diagram.
     """
 
-    def __init__(self, num_qubits=3, initial_state=None, preloaded_circuit=None, show_circuit=True, show_annotations=False):
+    def __init__(self, num_qubits=3, initial_state=None, preloaded_circuit=None, show_circuit=True, show_annotations=False, available_gates=None, max_gate_count=None):
         self.num_qubits = min(num_qubits, 9)
         self.show_circuit = show_circuit
         self.show_annotations = show_annotations
+        self.max_gate_count = max_gate_count
         self.render_figsize = (8.0, 6.0)
 
         self._preloaded_circuit = preloaded_circuit
@@ -98,6 +99,8 @@ class InteractiveViewer:
 
         # Dynamic Zoom Slider
         # Establish default zoom based on initial qubit count
+        if self.num_qubits < 3:
+            initial_zoom = 30
         if self.num_qubits < 6:
             initial_zoom = 60
         else:
@@ -110,8 +113,19 @@ class InteractiveViewer:
             layout={'width': '220px'}
         )
 
-        self.gate_dropdown = widgets.Dropdown(options=['H', 'X', 'Y', 'Z', 'P', 'Rx', 'Ry', 'Rz'], value='H',
-                                              description='Gate:', layout={'width': '180px'})
+        # ==========================================
+        # DYNAMIC GATE SELECTOR
+        # ==========================================
+        default_gates = ['H', 'X', 'Y', 'Z', 'P', 'Rx', 'Ry', 'Rz']
+        self.available_gates = available_gates if available_gates else default_gates
+
+        self.gate_dropdown = widgets.Dropdown(
+            options=self.available_gates,
+            value=self.available_gates[0],
+            description='Gate:',
+            layout={'width': '180px'}
+        )
+
         self.controlled_checkbox = widgets.Checkbox(value=False, description='Controlled', indent=False,
                                                     disabled=(self.num_qubits < 2),
                                                     layout={'width': '100px', 'margin': '0px 10px 0px 10px'})
@@ -296,6 +310,8 @@ class InteractiveViewer:
         self.export_svg_btn.on_click(self._export_svg)
         self.export_circ_png_btn.on_click(self._export_circ_png)
         self.export_circ_svg_btn.on_click(self._export_circ_svg)
+
+        self.gate_counter = widgets.HTML(layout={'margin': '0px 0px 0px 15px'})
 
         # --- Layout Assembly ---
         self.controls_header = widgets.Box(
@@ -999,11 +1015,34 @@ class InteractiveViewer:
         self.redo_btn.disabled = not bool(self._redo_circuit_history)
 
         # ==========================================
-        # ANNOTATION RENDERER
+        # GATE COUNTER RENDERER
+        # ==========================================
+        current_gates = len(self._circuit_history)
+        if getattr(self, 'max_gate_count', None) is not None:
+            # Shift color dynamically based on threshold violation
+            color = "#27ae60" if current_gates <= self.max_gate_count else "#e74c3c"
+            self.gate_counter.value = f"<div style='font-family: sans-serif; font-size: 14px; font-weight: bold; color: {color}; border: 1px solid {color}; padding: 4px 10px; border-radius: 4px;'>Steps: {current_gates} / {self.max_gate_count}</div>"
+        else:
+            self.gate_counter.value = f"<div style='font-family: sans-serif; font-size: 14px; font-weight: bold; color: #7f8c8d; border: 1px solid #bdc3c7; padding: 4px 10px; border-radius: 4px;'>Steps: {current_gates}</div>"
+
+        # ==========================================
+        # ANNOTATION RENDERER (Architectural Fix)
         # ==========================================
         if getattr(self, 'show_annotations', False):
             step_idx = len(self._circuit_history)
-            annotation_text = self._annotations.get(step_idx, "")
+
+            # 1. Filter for all annotation keys that are less than or equal to the current step
+            past_steps = [k for k in self._annotations.keys() if k <= step_idx]
+
+            # 2. Dynamically resolve the text based on the most recent milestone
+            if past_steps:
+                latest_active_step = max(past_steps)
+                annotation_text = self._annotations[latest_active_step]
+            elif self._annotations:
+                # Fallback if the user is at a step prior to the very first annotation
+                annotation_text = "Circuit initialized. Proceed to the next step."
+            else:
+                annotation_text = ""
 
             if annotation_text:
                 is_eval = getattr(self, 'is_assessment', False)
@@ -1060,7 +1099,6 @@ class InteractiveViewer:
                 # ==========================================
 
                 # --- A. Resolve State Visualization ---
-                # Key strictly depends on the math and the dropdowns
                 stable_tensor_bytes = np.round(sv_current.data, decimals=5).tobytes()
                 vis_cache_key = (
                     hash(stable_tensor_bytes),
@@ -1069,12 +1107,10 @@ class InteractiveViewer:
                 )
 
                 if vis_cache_key in self._vis_cache:
-                    # LRU Hit: Refresh position and use cached bytes
                     vis_bytes = self._vis_cache.pop(vis_cache_key)
                     self._vis_cache[vis_cache_key] = vis_bytes
                     self.image_widget.value = vis_bytes
                 else:
-                    # Cache Miss: Generate Matplotlib graphic
                     vis_class = self._get_active_vis_class()
                     if self.vis_dropdown.value == 'Sphere Notation':
                         vis = vis_class.from_qiskit(self.circuit, select_qubit=self.bloch_qubit_dropdown.value)
@@ -1087,27 +1123,23 @@ class InteractiveViewer:
                     vis_bytes = base64.b64decode(b64_str)
                     self.image_widget.value = vis_bytes
 
-                    # Store and enforce 50-item LRU limit
                     self._vis_cache[vis_cache_key] = vis_bytes
                     if len(self._vis_cache) > 50:
                         self._vis_cache.popitem(last=False)
 
                 # --- B. Resolve Circuit Diagram ---
                 if self.show_circuit:
-                    # Key strictly depends on exact gate history and future redo state
                     circ_id = hash(str(self.circuit.data))
                     redo_id = hash(str(self._redo_circuit_history[0].data)) if self._redo_circuit_history else None
                     circ_cache_key = (circ_id, redo_id)
 
                     if circ_cache_key in self._circ_cache:
-                        # LRU Hit
                         circ_bytes = self._circ_cache.pop(circ_cache_key)
                         self._circ_cache[circ_cache_key] = circ_bytes
                         self.circuit_image_widget.value = circ_bytes
                     else:
-                        # Cache Miss: Generate PIL Circuit
                         drawable_curr = self._get_drawable_circuit(self.circuit)
-                        fig_curr = drawable_curr.draw(output='mpl', scale=0.4, style={'backgroundcolor': 'none'})
+                        fig_curr = drawable_curr.draw(output='mpl', scale=0.3, style={'backgroundcolor': 'none'})
                         buf_curr = BytesIO()
                         fig_curr.savefig(buf_curr, format='png', bbox_inches='tight', dpi=300)
                         plt.close(fig_curr)
@@ -1117,7 +1149,7 @@ class InteractiveViewer:
                         else:
                             future_circ = self._redo_circuit_history[0]
                             drawable_fut = self._get_drawable_circuit(future_circ)
-                            fig_fut = drawable_fut.draw(output='mpl', scale=0.4, style={'backgroundcolor': 'none'})
+                            fig_fut = drawable_fut.draw(output='mpl', scale=0.3, style={'backgroundcolor': 'none'})
                             buf_fut = BytesIO()
                             fig_fut.savefig(buf_fut, format='png', bbox_inches='tight', dpi=300)
                             plt.close(fig_fut)
@@ -1155,7 +1187,6 @@ class InteractiveViewer:
 
                         self.circuit_image_widget.value = circ_bytes
 
-                        # Store and enforce 50-item LRU limit
                         self._circ_cache[circ_cache_key] = circ_bytes
                         if len(self._circ_cache) > 50:
                             self._circ_cache.popitem(last=False)
@@ -1165,7 +1196,6 @@ class InteractiveViewer:
                 traceback.print_exc()
 
             finally:
-                # Prevent memory leaks
                 plt.close('all')
 
     def show(self, show_circuit=None):
@@ -1174,7 +1204,7 @@ class InteractiveViewer:
         try:
             if self.show_circuit:
                 drawable_circ = self._get_drawable_circuit(self.circuit)
-                circ_fig = drawable_circ.draw(output='mpl', scale=0.4)
+                circ_fig = drawable_circ.draw(output='mpl', scale=0.3)
                 circ_fig.suptitle("Quantum Circuit Pipeline")
 
             vis_class = self._get_active_vis_class()
@@ -1231,7 +1261,7 @@ class ChallengeViewer(InteractiveViewer):
     """
 
     def __init__(self, num_qubits, initial_state=None, target_state=None, preloaded_circuit=None, show_circuit=True,
-                 show_annotations=False, is_assessment=True):
+                 show_annotations=False, is_assessment=True, available_gates=None, max_gate_count = None):
         self.is_assessment = is_assessment
 
         # ==========================================
@@ -1286,7 +1316,9 @@ class ChallengeViewer(InteractiveViewer):
             initial_state=initial_state,
             preloaded_circuit=preloaded_circuit,
             show_circuit=show_circuit,
-            show_annotations=show_annotations  # <--- PASSED TO PARENT
+            show_annotations=show_annotations,
+            available_gates=available_gates,
+            max_gate_count=max_gate_count
         )
 
         self.image_widget.layout = shared_layout
@@ -1394,30 +1426,30 @@ class ChallengeViewer(InteractiveViewer):
             self._check_success()
 
     def _check_success(self):
-        # Architectural guard against the super().__init__ race condition
-        if not hasattr(self, 'target_state'):
-            return
+        if not hasattr(self, 'target_state'): return
         try:
-            # 1. extract the target system size from the statevector length
             target_dim = len(self.target_state)
             target_qubits = int(np.log2(target_dim))
 
-            # 2. Prevent linear algebra errors by halting execution on dimension mismatch
             if self.num_qubits != target_qubits:
-                msg = f"Status: Dimension Mismatch (System: {self.num_qubits}Q, Target: {target_qubits}Q) ⚠️"
-                self.status_banner.value = f"<h2 style='text-align: center; color: #f39c12;'>{msg}</h2>"
+                self.status_banner.value = f"<h2 style='text-align: center; color: #f39c12;'>Status: Dimension Mismatch ⚠️</h2>"
                 return
 
-            # 3. Calculate state fidelity within the equivalent Hilbert spaces
             sv_current = Statevector.from_instruction(self.circuit)
             sv_target = Statevector(self.target_state)
 
+            current_gates = len(self._circuit_history)
+            gate_limit = getattr(self, 'max_gate_count', None)
+
             if np.isclose(state_fidelity(sv_current, sv_target), 1.0, atol=1e-5):
-                self.status_banner.value = "<h2 style='text-align: center; color: #27ae60;'>Status: Challenge Completed! 🎉</h2>"
+                # Target mathematical state reached. Now check constraint bounds.
+                if gate_limit is not None and current_gates > gate_limit:
+                    self.status_banner.value = f"<h2 style='text-align: center; color: #e67e22;'>Status: Target Reached, but Gate Limit Exceeded ({current_gates}/{gate_limit}) ⚠️</h2>"
+                else:
+                    self.status_banner.value = "<h2 style='text-align: center; color: #27ae60;'>Status: Challenge Completed! 🎉</h2>"
             else:
                 self.status_banner.value = "<h2 style='text-align: center; color: #e74c3c;'>Status: Incomplete ❌</h2>"
 
         except Exception as e:
-            # Divert unexpected mathematical errors to the UI console rather than silently failing
             with self.console:
                 print(f"Fidelity Evaluation Error: {type(e).__name__}: {str(e)}")

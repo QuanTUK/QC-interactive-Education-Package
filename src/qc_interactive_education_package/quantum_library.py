@@ -1,6 +1,5 @@
 import numpy as np
 from qiskit import QuantumCircuit
-from qiskit.circuit.library import QFTGate, grover_operator
 from qiskit.quantum_info import Statevector, random_statevector
 
 
@@ -39,7 +38,7 @@ class QuantumCurriculum:
                                    "The **CNOT** gate permanently entangles the qubits. Notice how the amplitudes have shifted into the mathematically inseparable Bell State: $| \\Phi^+ \\rangle = \\frac{|00\\rangle + |11\\rangle}{\\sqrt{2}}$.")
         algos["Bell State Entanglement"] = qc_bell
 
-        # --- Algorithm 2: GHZ State ---
+        # --- Algorithm 1.5: GHZ State ---
         qc_ghz = QuantumCircuit(3)
         qc_ghz.h(0)
         qc_ghz.cx(0, 1)
@@ -53,6 +52,53 @@ class QuantumCurriculum:
         QuantumCurriculum.annotate(qc_ghz, 3,
                                    "The second **CNOT** cascades the entanglement to $q_2$. We have successfully generated the maximally entangled tripartite **GHZ State**: $\\frac{|000\\rangle + |111\\rangle}{\\sqrt{2}}$.")
         algos["GHZ State Entanglement"] = qc_ghz
+
+        # --- Algorithm 2: Unitary Quantum Teleportation ---
+
+        # We use a standard 3-qubit circuit with no classical registers to ensure
+        # perfect compatibility with the ChallengeViewer's Statevector extraction.
+        qc_teleport = QuantumCircuit(3)
+
+        # Step 0: Prepare an arbitrary, non-trivial state on Qubit 0
+        psi = random_statevector(2)
+
+        # Remove global phase: rotate so the global phase is 0 (first element becomes real). This doesn't change the physics.
+        psi = Statevector(np.exp(-1j * np.angle(psi.data[0])) * psi.data)
+        full_sv = Statevector.from_label('00').tensor(psi)
+        qc_teleport.initialize(full_sv, [0, 1, 2])
+
+        # Step 1: Create Entanglement
+        qc_teleport.h(1)
+        qc_teleport.cx(1, 2)
+        qc_teleport.barrier()
+
+        # Step 2: Alice's local operations (Projecting into the Bell Basis)
+        qc_teleport.cx(0, 1)
+        qc_teleport.h(0)
+        qc_teleport.barrier()
+
+        # Step 3 & 4: Quantum Feedforward (Deferred Measurement Principle)
+        # Instead of measuring Qubit 1 to conditionally apply X, we use a CNOT.
+        qc_teleport.cx(1, 2)
+
+        # Instead of measuring Qubit 0 to conditionally apply Z, we use a CZ.
+        qc_teleport.cz(0, 2)
+
+        # --- Annotations ---
+
+        QuantumCurriculum.annotate(qc_teleport, 0,
+                                   "**Initialization:** Qubit 0 holds the unknown state $|\\psi\\rangle$. Qubits 1 and 2 act as the blank computational medium.")
+
+        QuantumCurriculum.annotate(qc_teleport, 1,
+                                   "**Entanglement Generation:** A Hadamard and CNOT gate construct the maximally entangled Bell state $|\\Phi^+\\rangle$ between Qubits 1 and 2. This establishes the non-local correlation.")
+
+        QuantumCurriculum.annotate(qc_teleport, 4,
+                                   "**Basis Transformation:** Alice interacts her message qubit (Qubit 0) with her half of the entangled pair (Qubit 1) using a CNOT followed by a Hadamard. This operation effectively projects the system into the Bell basis.")
+
+        QuantumCurriculum.annotate(qc_teleport, 7,
+                                   "**Quantum Feedforward:** To satisfy the requirements of a unitary Statevector simulator, we utilize the *Deferred Measurement Principle*. Instead of extracting classical bits, Alice's qubits act as direct quantum controls for the corrective Pauli operations on Bob's qubit. The exact state $|\\psi\\rangle$ is successfully reconstructed on Qubit 2.")
+
+        algos["Quantum Teleportation"] = qc_teleport
 
         # --- Algorithm 3: Quantum Fourier Transform ---
         # Replaced the opaque QFTGate with the explicit pedagogical sequence
@@ -70,9 +116,10 @@ class QuantumCurriculum:
         QuantumCurriculum.annotate(qc_qft, 1,
                                    "A **Hadamard** on the Most Significant Bit (MSB, $q_2$) begins the phase fractionalization.")
         QuantumCurriculum.annotate(qc_qft, 2,
-                                   "A Controlled-Phase gate ($\pi/2$) applies a fractional kickback conditional on $q_1$.")
+                                   r"A Controlled-Phase gate ($\pi/2$) applies a fractional kickback conditional on $q_1$.")
+
         QuantumCurriculum.annotate(qc_qft, 3,
-                                   "A Controlled-Phase gate ($\pi/4$) applies a finer fractional kickback conditional on $q_0$. The MSB is now fully encoded in the Fourier basis.")
+                                   r"A Controlled-Phase gate ($\pi/4$) applies a finer fractional kickback conditional on $q_0$. The MSB is now fully encoded in the Fourier basis.")
         QuantumCurriculum.annotate(qc_qft, 7,
                                    "Finally, the **SWAP** gate reverses the qubit ordering to mathematically align the output with standard Qiskit little-endian notation.")
         algos["Quantum Fourier Transform (3Q)"] = qc_qft
@@ -326,7 +373,9 @@ class QuantumCurriculum:
             "initial_state": [1.0, 0.0],
             "target_state": [inv_sq2, inv_sq2],
             "preloaded_circuit": make_hint(1,
-                                           "To map a deterministic classical state into a uniform superposition, apply a **Hadamard** (`H`) gate.")
+                                           r"To map a deterministic classical state into a uniform superposition, apply a **Hadamard** (`H`) gate."),
+            "available_gates": ['H', 'X', 'Y', 'Z'],
+            "max_gate_count": 1
         }
 
         challenges["Level 2: Phase Flip (|1⟩ to |-⟩)"] = {
@@ -334,7 +383,9 @@ class QuantumCurriculum:
             "initial_state": [0.0, 1.0],
             "target_state": [inv_sq2, -inv_sq2],
             "preloaded_circuit": make_hint(1,
-                                           "You are starting in the $|1\\rangle$ state. Applying a Hadamard gate to $|1\\rangle$ will yield the targeted negative phase superposition automatically.")
+                                           r"You are starting in the $|1\rangle$ state. Applying a Hadamard gate to $|1\rangle$ will yield the targeted negative phase superposition automatically."),
+            "available_gates": ['H', 'X', 'Y', 'Z'],
+            "max_gate_count": 1
         }
 
         qc_bell = QuantumCircuit(2)
@@ -345,7 +396,9 @@ class QuantumCurriculum:
             "initial_state": [1.0, 0.0, 0.0, 0.0],
             "target_state": Statevector.from_instruction(qc_bell).data.tolist(),
             "preloaded_circuit": make_hint(2,
-                                           "Entanglement requires two steps: First, create a superposition on $q_0$ using an `H` gate. Then, correlate $q_1$ to $q_0$ using a Controlled-NOT (`CX`) gate.")
+                                           r"Entanglement requires two steps: First, create a superposition on $q_0$ using an `H` gate. Then, correlate $q_1$ to $q_0$ using a Controlled-NOT (`CX`) gate."),
+            "available_gates": ['H', 'X', 'Y', 'Z'],
+            "max_gate_count": 2
         }
 
         qc_ghz = QuantumCircuit(3)
@@ -357,15 +410,19 @@ class QuantumCurriculum:
             "initial_state": [1.0] + [0.0] * 7,
             "target_state": Statevector.from_instruction(qc_ghz).data.tolist(),
             "preloaded_circuit": make_hint(3,
-                                           "To build a tripartite GHZ state, first construct a standard Bell State between $q_0$ and $q_1$, and then cascade a second `CX` gate from $q_1$ to $q_2$.")
+                                           r"To build a tripartite GHZ state, first construct a standard Bell State between $q_0$ and $q_1$, and then cascade a second `CX` gate from $q_1$ to $q_2$."),
+            "available_gates": ['H', 'X', 'Y', 'Z'],
+            "max_gate_count": 3
         }
 
         challenges["Level 5: Quantum Teleportation"] = {
             "num_qubits": 3,
-            "initial_state": [inv_sq2, -inv_sq2, 0.0, 0.0, 0.0, 0.0, inv_sq2, -inv_sq2],
+            "initial_state": random_statevector(2),
             "target_state": [inv_sq2, -inv_sq2, inv_sq2, -inv_sq2, -inv_sq2, inv_sq2, inv_sq2, -inv_sq2],
             "preloaded_circuit": make_hint(3,
-                                           "You must bind Bob ($q_2$) to Alice ($q_1$) using a Bell State, then mathematically fuse Alice's random state ($q_0$) into the Bell pair using `CX` and `H` gates. Finally, resolve the deferred measurements with `CX` ($q_1\\rightarrow q_2$) and `CZ` ($q_0\\rightarrow q_2$).")
+                                           r"You must bind Bob (qubit 3) to Alice (qubit 2) using a Bell State, then mathematically fuse Alice's random state (qubit 1) into the Bell pair using `CX` and `H` gates. The measurement, in the end, would then yield a state that can be correct to the initial state of qubit 1."),
+            "available_gates": ['H', 'X', 'Y', 'Z'],
+            "max_gate_count": 4
         }
 
         challenges["Level 6: Search Challenge: Amplify |101⟩"] = {
@@ -373,7 +430,9 @@ class QuantumCurriculum:
             "initial_state": [1.0] + [0.0] * 7,
             "target_state": [0.0, 0.0, 0.0, 0.0, 0.0, inv_sq2, 0.0, inv_sq2],
             "preloaded_circuit": make_hint(3,
-                                           "To amplify $|101\\rangle$, you must construct an Oracle that isolates the target using $X$-gates on the zero-bits, and phase-flips it using a Multi-Controlled Z-gate. (For a 3-qubit challenge, standard `H` gates and `CCX` work perfectly).")
+                                           r"To amplify $|101\rangle$, you must construct an Oracle that isolates the target using $X$-gates on the zero-bits, and phase-flips it using a Multi-Controlled Z-gate. (For a 3-qubit challenge, standard `H` gates and `CCX` work perfectly)."),
+            "available_gates": ['H', 'X', 'Y', 'Z'],
+            "max_gate_count": 26
         }
 
         # --- Phase-Flip Error Correction ---
@@ -391,7 +450,9 @@ class QuantumCurriculum:
             "initial_state": Statevector.from_instruction(qc_phase_init).data.tolist(),
             "target_state": Statevector.from_instruction(qc_phase_target).data.tolist(),
             "preloaded_circuit": make_hint(3,
-                                           "The system is currently corrupted by a $Z$-error. Because Phase ($Z$) errors become Bit ($X$) errors when rotated into the Hadamard basis, you must sandwich your standard Repetition Code syndrome measurement (`CX`, `CCX`) between two arrays of `H` gates.")
+                                           r"The system is currently corrupted by a $Z$-error. Because Phase ($Z$) errors become Bit ($X$) errors when rotated into the Hadamard basis, you must sandwich your standard Repetition Code syndrome measurement (`CX`, `CCX`) between two arrays of `H` gates."),
+            "available_gates": ['H', 'X', 'Y', 'Z'],
+            "max_gate_count": 9
         }
 
         return challenges

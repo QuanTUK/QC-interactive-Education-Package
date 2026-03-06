@@ -42,7 +42,7 @@ def _sanitize_state(state):
 
 
 def launch_app(mode="sandbox", num_qubits=None, initial_state=None, target_state=None, show_circuit=True,
-               preloaded_circuit=None):
+               preloaded_circuit=None, available_gates=None, max_gate_count=None):
     """
     Launches the master Single Page Application (SPA) in a new browser tab via Voilà.
     Validates execution modes and serializes arguments to cross the subprocess boundary.
@@ -85,6 +85,15 @@ def launch_app(mode="sandbox", num_qubits=None, initial_state=None, target_state
     # Serialize the Qiskit circuit to a QASM string if provided
     custom_env["VIEWER_SHOW_CIRCUIT"] = "1" if show_circuit else "0"
 
+    # Serialize the available gates array safely to JSON
+    if available_gates is not None:
+        custom_env["VIEWER_AVAILABLE_GATES"] = json.dumps(available_gates)
+
+    if max_gate_count is not None:
+        custom_env["VIEWER_MAX_GATES"] = str(max_gate_count)
+
+    custom_env["VIEWER_SHOW_CIRCUIT"] = "1" if show_circuit else "0"
+
     # ==========================================
     # QPY BINARY SERIALIZATION
     # ==========================================
@@ -124,7 +133,7 @@ class QuantumViewer:
     """
 
     def __init__(self, mode="sandbox", num_qubits=None, initial_state=None, target_state=None, show_circuit=True,
-                 preloaded_circuit=None):
+                 preloaded_circuit=None, available_gates=None, max_gate_count=None):
         # Dedicated output container for the interactive canvases
         self.viewer_output = widgets.Output(layout={'width': '100%', 'margin': '20px 0px 0px 0px'})
 
@@ -179,26 +188,19 @@ class QuantumViewer:
             with self.viewer_output:
                 if mode == "algorithm":
                     viewer = ChallengeViewer(
-                        num_qubits=_nq,
-                        preloaded_circuit=preloaded_circuit,
-                        show_circuit=show_circuit,
-                        is_assessment=False
+                        num_qubits=_nq, preloaded_circuit=preloaded_circuit, show_circuit=show_circuit,
+                        is_assessment=False, available_gates=available_gates, max_gate_count=max_gate_count
                     )
                 elif mode == "challenge":
                     viewer = ChallengeViewer(
-                        num_qubits=_nq,
-                        initial_state=initial_state,
-                        target_state=target_state,
-                        preloaded_circuit=preloaded_circuit,
-                        show_circuit=show_circuit,
-                        is_assessment=True
+                        num_qubits=_nq, initial_state=initial_state, target_state=target_state,
+                        preloaded_circuit=preloaded_circuit, show_circuit=show_circuit, is_assessment=True,
+                        available_gates=available_gates, max_gate_count=max_gate_count
                     )
-                else:  # Fallback strictly to standard sandbox mode
+                else:
                     viewer = InteractiveViewer(
-                        num_qubits=_nq,
-                        initial_state=initial_state,
-                        preloaded_circuit=preloaded_circuit,
-                        show_circuit=show_circuit
+                        num_qubits=_nq, initial_state=initial_state, preloaded_circuit=preloaded_circuit,
+                        show_circuit=show_circuit, available_gates=available_gates, max_gate_count=max_gate_count
                     )
 
                 # Fast-forward the timeline to render the final state instantly if a circuit was provided
@@ -367,7 +369,6 @@ class QuantumViewer:
 
     def _launch_challenge(self, b):
         chal_data = self.challenges[self.chal_dropdown.value]
-
         with self.viewer_output:
             clear_output(wait=True)
             viewer = ChallengeViewer(
@@ -377,7 +378,9 @@ class QuantumViewer:
                 preloaded_circuit=chal_data.get("preloaded_circuit", None),
                 show_circuit=self.chal_circuit.value,
                 show_annotations=self.chal_annotations.value,
-                is_assessment=True
+                is_assessment=True,
+                available_gates=chal_data.get("available_gates", None),
+                max_gate_count=chal_data.get("max_gate_count", None) # <--- EXTRACTED
             )
             viewer.display()
 
