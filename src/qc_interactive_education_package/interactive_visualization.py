@@ -1141,9 +1141,10 @@ class InteractiveViewer:
                         self.circuit_image_widget.value = circ_bytes
                     else:
                         drawable_curr = self._get_drawable_circuit(self.circuit)
-                        fig_curr = drawable_curr.draw(output='mpl', scale=0.3, style={'backgroundcolor': 'none'})
+                        # Changed scale to 1.0 for high-resolution intrinsic rasterization
+                        fig_curr = drawable_curr.draw(output='mpl', scale=0.25, style={'backgroundcolor': 'none'})
                         buf_curr = BytesIO()
-                        fig_curr.savefig(buf_curr, format='png', bbox_inches='tight', dpi=300)
+                        fig_curr.savefig(buf_curr, format='png', bbox_inches='tight', dpi=600)
                         plt.close(fig_curr)
 
                         if not self._redo_circuit_history:
@@ -1151,9 +1152,10 @@ class InteractiveViewer:
                         else:
                             future_circ = self._redo_circuit_history[0]
                             drawable_fut = self._get_drawable_circuit(future_circ)
-                            fig_fut = drawable_fut.draw(output='mpl', scale=0.3, style={'backgroundcolor': 'none'})
+                            # Changed scale to 1.0 here as well
+                            fig_fut = drawable_fut.draw(output='mpl', scale=0.25, style={'backgroundcolor': 'none'})
                             buf_fut = BytesIO()
-                            fig_fut.savefig(buf_fut, format='png', bbox_inches='tight', dpi=300)
+                            fig_fut.savefig(buf_fut, format='png', bbox_inches='tight', dpi=600)
                             plt.close(fig_fut)
 
                             buf_curr.seek(0)
@@ -1206,7 +1208,7 @@ class InteractiveViewer:
         try:
             if self.show_circuit:
                 drawable_circ = self._get_drawable_circuit(self.circuit)
-                circ_fig = drawable_circ.draw(output='mpl', scale=0.3)
+                circ_fig = drawable_circ.draw(output='mpl', scale=0.25, style={'backgroundcolor': 'none'})
                 circ_fig.suptitle("Quantum Circuit Pipeline")
 
             vis_class = self._get_active_vis_class()
