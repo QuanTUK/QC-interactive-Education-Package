@@ -268,6 +268,56 @@ class QuantumViewer:
         return widgets.VBox([self.sb_qubits, self.sb_initial, self.sb_circuit, btn],
                             layout={'padding': '20px', 'align_items': 'center'})
 
+    def _unpack_algorithm(self, qc):
+        """
+        Decomposes custom composite gates while strictly preserving and mathematically
+        realigning pedagogical annotations to the new timeline geometry.
+        """
+        from qiskit import QuantumCircuit
+
+        unpacked_qc = QuantumCircuit(*qc.qregs, *qc.cregs)
+        old_annotations = qc.metadata.get('annotations', {}) if qc.metadata else {}
+        new_annotations = {}
+
+        old_step = 0
+        new_step = 0
+
+        # Transfer the initialization annotation
+        if 0 in old_annotations:
+            new_annotations[0] = old_annotations[0]
+
+        # Define standard fundamental gates that should strictly resist unpacking
+        atomic_gates = {'h', 'x', 'y', 'z', 'cx', 'ccx', 'cp', 'swap', 'cswap', 'mcx', 'initialize', 'barrier',
+                        'measure'}
+
+        for inst in qc.data:
+            old_step += 1
+            op = inst.operation
+
+            # Identify custom composite blocks (Oracles, Diffusers, U-Gates)
+            if op.name.lower() not in atomic_gates and getattr(op, 'definition', None) is not None:
+                # Isolate the composite gate in a vacuum circuit to cleanly extract its decomposition
+                temp_qc = QuantumCircuit(*qc.qregs, *qc.cregs)
+                temp_qc.append(inst)
+                dec_qc = temp_qc.decompose()
+
+                # Unroll the decomposed instructions into the master timeline
+                for dec_inst in dec_qc.data:
+                    unpacked_qc.append(dec_inst)
+
+                # Advance the new timeline counter by the length of the expanded block
+                new_step += len(dec_qc.data)
+            else:
+                unpacked_qc.append(inst)
+                new_step += 1
+
+            # Transfer the annotation to the exact ending boundary of the newly unpacked block
+            if old_step in old_annotations:
+                new_annotations[new_step] = old_annotations[old_step]
+
+        unpacked_qc.metadata = {'annotations': new_annotations}
+        return unpacked_qc
+
     def _update_state_dropdown(self, change):
         n = change['new']
         options_dict = {
@@ -301,8 +351,12 @@ class QuantumViewer:
         self.algo_annotations = widgets.Checkbox(value=True, description='Show Explanations', indent=False,
                                                  layout={'width': 'auto'})
 
+        # --- NEW UNPACK TOGGLE ---
+        self.algo_unpack = widgets.Checkbox(value=False, description='Unpack Custom Gates', indent=False,
+                                            layout={'width': 'auto'})
+
         checkbox_row = widgets.HBox(
-            [self.algo_circuit, self.algo_final_state, self.algo_annotations],
+            [self.algo_circuit, self.algo_final_state, self.algo_annotations, self.algo_unpack],
             layout={'display': 'flex', 'flex_flow': 'row wrap', 'justify_content': 'center', 'grid_gap': '15px',
                     'margin': '10px 0px'}
         )
@@ -386,7 +440,12 @@ class QuantumViewer:
                 viewer.display()
 
     def _launch_algorithm(self, b):
-        qc_raw = self.algos[self.algo_dropdown.value]
+        # Create a strict copy so we don't permanently mutate the library in memory
+        qc_raw = self.algos[self.algo_dropdown.value].copy()
+
+        # --- DYNAMIC UNPACKING ---
+        if self.algo_unpack.value:
+            qc_raw = self._unpack_algorithm(qc_raw)
 
         with self.viewer_output:
             clear_output(wait=True)

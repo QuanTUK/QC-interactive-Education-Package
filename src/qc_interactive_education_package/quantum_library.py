@@ -46,7 +46,7 @@ class QuantumCurriculum:
 
         QuantumCurriculum.annotate(qc_ghz, 0, "We begin in the $|000\\rangle$ ground state.")
         QuantumCurriculum.annotate(qc_ghz, 1,
-                                   "The **Hadamard** gate places the first qubit into a superposition, yielding $\\frac{|000\\rangle + |001\\rangle}{\\sqrt{2}}$.")
+                                   "The **Hadamard** gate places qubit 0 into a superposition, yielding $\\frac{|000\\rangle + |001\\rangle}{\\sqrt{2}}$.")
         QuantumCurriculum.annotate(qc_ghz, 2,
                                    "The first **CNOT** entangles $q_0$ and $q_1$. We now have a bipartite entangled pair tensored with a deterministic $q_2$.")
         QuantumCurriculum.annotate(qc_ghz, 3,
@@ -87,16 +87,16 @@ class QuantumCurriculum:
         # --- Annotations ---
 
         QuantumCurriculum.annotate(qc_teleport, 0,
-                                   "**Initialization:** Qubit 0 holds the unknown state $|\\psi\\rangle$. Qubits 1 and 2 act as the blank computational medium.")
+                                   "**Initialization:** Qubit 0 holds the unknown (here, random) state $|\\psi\\rangle$. Qubits 1 and 2 act as the blank computational medium.")
 
         QuantumCurriculum.annotate(qc_teleport, 1,
-                                   "**Entanglement Generation:** A Hadamard and CNOT gate construct the maximally entangled Bell state $|\\Phi^+\\rangle$ between Qubits 1 and 2. This establishes the non-local correlation.")
+                                   "**Entanglement Generation:** A Hadamard and CNOT gate construct the maximally entangled Bell state $|\\Phi^+\\rangle$ between Qubits 1 and 2.")
 
         QuantumCurriculum.annotate(qc_teleport, 4,
                                    "**Basis Transformation:** Alice interacts her message qubit (Qubit 0) with her half of the entangled pair (Qubit 1) using a CNOT followed by a Hadamard. This operation effectively projects the system into the Bell basis.")
 
         QuantumCurriculum.annotate(qc_teleport, 7,
-                                   "**Quantum Feedforward:** To satisfy the requirements of a unitary Statevector simulator, we utilize the *Deferred Measurement Principle*. Instead of extracting classical bits, Alice's qubits act as direct quantum controls for the corrective Pauli operations on Bob's qubit. The exact state $|\\psi\\rangle$ is successfully reconstructed on Qubit 2.")
+                                   "**Quantum Feedforward:** To satisfy the requirements of a unitary Statevector simulator, we utilize the *Deferred Measurement Principle*. Instead of extracting classical bits, Alice's qubits act as direct quantum controls for the corrective Pauli operations on Bob's qubit. The exact state $|\\psi\\rangle$ is successfully reconstructed on Qubit 2, successfully disentangling the system.")
 
         algos["Quantum Teleportation"] = qc_teleport
 
@@ -256,7 +256,7 @@ class QuantumCurriculum:
 
         qc_shor_6q.append(prep.to_gate(label="Initialization"), range(6))
         QuantumCurriculum.annotate(qc_shor_6q, 0,
-                                   "We initialize the counting register in a uniform superposition and set the auxiliary work register to the multiplicative identity $|1\\rangle$ (Decimal 1).")
+                                   "We initialize the counting register in a uniform superposition and set the auxiliary work register to the multiplicative identity $|1\\rangle$ (Decimal 1). In the following, modular exponentiation will be computed in superposition, forcing a phase kickback that effectively encodes the arithmetic periodicity of the function directly into the amplitudes of the counting register.")
 
         from qiskit.circuit.library import UnitaryGate
         U_matrix = np.eye(8)
@@ -317,6 +317,9 @@ class QuantumCurriculum:
         QuantumCurriculum.annotate(qc_shor_8q, 0,
                                    "We initialize the 8Q Shor algorithm. The 4-qubit counting register is placed into uniform superposition, and the auxiliary register is excited to $|1\\rangle$.")
 
+        QuantumCurriculum.annotate(qc_shor_8q, 1,
+                                   r"The following sequential modular exponentiation computes $f(x) = a^x \bmod N$ in superposition. This operation imprints the hidden periodic structure of the function onto the counting register's phase via phase kickback, creating a highly complex entanglement topology between the two registers.")
+
         def c_amod15(base, power):
             if base not in [2, 4, 7, 8, 11, 13]:
                 raise ValueError("'base' must be 2,4,7,8,11 or 13")
@@ -343,11 +346,9 @@ class QuantumCurriculum:
         for q in range(n_count):
             qc_shor_8q.append(c_amod15(a, 2 ** q), [q] + [i + n_count for i in range(4)])
 
-        QuantumCurriculum.annotate(qc_shor_8q, 4,
-                                   "We have completed the sequential modular exponentiation. Notice the highly complex entanglement topology mapping between the counting and work registers.")
 
         qc_shor_8q.append(qft_dagger(n_count), range(n_count))
-        QuantumCurriculum.annotate(qc_shor_8q, 5,
+        QuantumCurriculum.annotate(qc_shor_8q, 6,
                                    "The **Inverse QFT** isolates the periodic interference patterns. Measuring the counting register now yields one of the exact eigenvalues required to extract the period classically.")
 
         algos["Shor's Algorithm: Factor 15 (8Q)"] = qc_shor_8q
