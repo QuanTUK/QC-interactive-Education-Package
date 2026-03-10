@@ -33,9 +33,9 @@ class QuantumCurriculum:
         QuantumCurriculum.annotate(qc_bell, 0,
                                    "We start in the absolute ground state $|00\\rangle$. Both qubits possess deterministic, classical values.")
         QuantumCurriculum.annotate(qc_bell, 1,
-                                   "The **Hadamard** gate (`HGate`) on $q_0$ creates a perfect superposition. The system is now separated into two equal branches: $\\frac{|00\\rangle + |01\\rangle}{\\sqrt{2}}$.")
+                                   "The Hadamard gate on $q_0$ creates a perfect superposition in terms of Qubit 0. The system is now separated into $\\frac{|00\\rangle + |01\\rangle}{\\sqrt{2}}$.")
         QuantumCurriculum.annotate(qc_bell, 2,
-                                   "The **CNOT** gate permanently entangles the qubits. Notice how the amplitudes have shifted into the mathematically inseparable Bell State: $| \\Phi^+ \\rangle = \\frac{|00\\rangle + |11\\rangle}{\\sqrt{2}}$.")
+                                   "The CNOT$_01$ gate permanently entangles the qubits. Notice how the amplitudes have shifted along the axis of Qubit 1 into the mathematically inseparable Bell State: $| \\Phi^+ \\rangle = \\frac{|00\\rangle + |11\\rangle}{\\sqrt{2}}$.")
         algos["Bell State Entanglement"] = qc_bell
 
         # --- Algorithm 1.5: GHZ State ---

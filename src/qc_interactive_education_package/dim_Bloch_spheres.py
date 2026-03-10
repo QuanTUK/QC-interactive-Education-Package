@@ -173,8 +173,10 @@ def multi_complex_to_Bloch(n, sel_qubit, vector, bitorder=1):
 
 
 class SphereNotation(Visualization):
-    def __init__(self, simulator, select_qubit=1, parse_math=True, version=2):
-        super().__init__(simulator)
+    # Added **kwargs to the signature and changed select_qubit default to 0
+    def __init__(self, simulator, select_qubit=0, parse_math=True, version=2, **kwargs):
+        # Forward **kwargs to the superclass to securely absorb 'zero_indexed' and 'figsize'
+        super().__init__(simulator, parse_math=parse_math, **kwargs)
 
         print(f"Setting up DCN Visualization in version {version}.")
 
