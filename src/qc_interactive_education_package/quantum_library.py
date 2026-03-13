@@ -513,7 +513,7 @@ class QuantumCurriculum:
             "initial_state": full_sv,
             "target_state": Statevector.from_instruction(qc_teleport),
             "preloaded_circuit": make_hint(3,
-                                           r"You must bind Bob (qubit 3) to Alice (qubit 2) using a Bell State, then mathematically fuse Alice's random state (qubit 1) into the Bell pair using `CX` and `H` gates. The measurement, in the end, would then yield a state that can be correct to the initial state of qubit 1."),
+                                           r"You must bind Bob (qubit 2) to Alice (qubit 1) using a Bell State, then mathematically fuse Alice's random state (qubit 0) into the Bell pair using `CX` and `H` gates. The measurement, in the end, would then yield a state that can be correct to the initial state of qubit 0."),
             "available_gates": ['H', 'X', 'Y', 'Z'],
             "max_gate_count": 4
         }
